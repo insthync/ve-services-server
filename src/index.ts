@@ -10,8 +10,11 @@ import { monitor } from "@colyseus/monitor";
 import { WebSocketTransport } from "@colyseus/ws-transport";
 import { Profanity, ProfanityOptions } from '@2toad/profanity';
 import cors from "cors";
+import morgan from "morgan";
 import winston from "winston";
+import fileupload from 'express-fileupload'
 import 'dotenv/config'
+import { MediaService } from "./services/MediaService";
 
 const logger: winston.Logger = winston.createLogger({
     level: 'info',
@@ -26,6 +29,8 @@ const logger: winston.Logger = winston.createLogger({
         new winston.transports.File({ filename: 'combined.log' }),
     ],
 });
+
+let mediaService: MediaService;
 
 if (process.env.NODE_ENV !== 'production') {
     logger.add(new winston.transports.Console({
@@ -43,6 +48,10 @@ export function isTestModeEnabled(): boolean {
 
 export function getLogger(): winston.Logger {
     return logger;
+}
+
+export function getMediaService(): MediaService {
+    return mediaService;
 }
 
 const profanityoptions = new ProfanityOptions();
@@ -114,6 +123,9 @@ function setup(app: express.Express, server: http.Server): Server {
         res.send("It's time to kick ass and chew bubblegum!");
     });
 
+    // Media
+    mediaService = new MediaService(app, logger);
+
     /**
      * Bind @colyseus/monitor
      * It is recommended to protect this route with a password.
@@ -130,6 +142,7 @@ const app = express();
 app.use(bodyParser.json());
 //support parsing of application/x-www-form-urlencoded post data
 app.use(bodyParser.urlencoded({ extended: true }));
+app.use(morgan('combined', { stream: logger }));
 app.use(cors());
 app.use(function(req, res, next) {
     res.setHeader('Vary', 'Origin')
