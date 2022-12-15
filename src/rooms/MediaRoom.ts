@@ -11,6 +11,7 @@ export class MediaRoom extends Room<MediaRoomState> {
     onCreate(options: any) {
         this.logger = getLogger();
         this.mediaService = getMediaService();
+        this.mediaService.onCreateRoom(this);
         this.setState(new MediaRoomState());
     }
 
@@ -19,6 +20,7 @@ export class MediaRoom extends Room<MediaRoomState> {
     }
 
     onLeave(client: Client, consented: boolean) {
+        this.mediaService.onDisconnect(client);
         this.logger.info(`[media] ${client.sessionId} left!`);
     }
 

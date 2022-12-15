@@ -215,7 +215,7 @@ export class MediaService {
         })
     }
 
-    public onClientRoom(room: MediaRoom) {
+    public onCreateRoom(room: MediaRoom) {
         const logger = this.logger;
         room.onMessage('sub', (socket, msg) => {
             logger.info('[media]' + socket.id + ' requested to sub ' + msg.playListId)
