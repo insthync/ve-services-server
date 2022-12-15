@@ -8,11 +8,11 @@ import { getVideoDurationInSeconds } from 'get-video-duration'
 export class MediaService {
     private app: express.Express;
     private logger: winston.Logger;
-    private prisma: PrismaClient;
-    private playLists: { [id: string]: any } = {}
-    private playListSubscribers: { [id: string]: any[] } = {}
-    private deletingMediaIds: string[] = []
-    private adminUserTokens: string[] = []
+    public readonly prisma: PrismaClient;
+    public readonly playLists: { [id: string]: any } = {}
+    public readonly playListSubscribers: { [id: string]: any[] } = {}
+    public readonly deletingMediaIds: string[] = []
+    public readonly adminUserTokens: string[] = []
 
     constructor(app: express.Express, logger: winston.Logger) {
         this.app = app;
@@ -138,8 +138,32 @@ export class MediaService {
             }
             res.status(200).send(videos)
         })
+
+        this.init();
     }
 
+    async init() {
+        // Prepare playlists
+        const videos = await this.prisma.videos.findMany({
+            orderBy: {
+                sortOrder: 'asc',
+            },
+        })
+        for (const media of videos) {
+            // Store playlist data
+            if (Object.hasOwnProperty.call(this.playLists, media.playListId)) {
+                continue
+            }
+            this.playLists[media.playListId] = {
+                mediaId: media.id,
+                duration: media.duration,
+                filePath: media.filePath,
+                isPlaying: true,
+                time: 0,
+                volume: 1,
+            }
+        }
+    }
 
     validateSystem(req: express.Request, res: express.Response, next: express.NextFunction) {
         const bearerHeader = req.headers['authorization']
