@@ -218,7 +218,7 @@ export class MediaService {
     public onCreateRoom(room: MediaRoom) {
         const logger = this.logger;
         room.onMessage('sub', (socket, msg) => {
-            logger.info('[media]' + socket.id + ' requested to sub ' + msg.playListId)
+            logger.info('[media] ' + socket.id + ' requested to sub ' + msg.playListId)
             const playListId = msg.playListId
             if (!Object.hasOwnProperty.call(this.playListSubscribers, playListId)) {
                 this.playListSubscribers[playListId] = []
@@ -226,7 +226,7 @@ export class MediaService {
             const currentPlayListSubscribers = this.playListSubscribers[playListId]
             if (currentPlayListSubscribers.indexOf(socket) < 0) {
                 currentPlayListSubscribers.push(socket)
-                logger.info('[media]' + socket.id + ' sub ' + playListId)
+                logger.info('[media] ' + socket.id + ' sub ' + playListId)
             }
             // Find the playlist, if found then `resp`
             if (!Object.hasOwnProperty.call(this.playLists, playListId)) {
@@ -238,7 +238,7 @@ export class MediaService {
         })
 
         room.onMessage('play', (socket, msg) => {
-            logger.info('[media]' + socket.id + ' requested to play ' + msg.playListId + ' by user: ' + msg.userToken)
+            logger.info('[media] ' + socket.id + ' requested to play ' + msg.playListId + ' by user: ' + msg.userToken)
             const userToken = msg.userToken
             if (this.adminUserTokens.indexOf(userToken) < 0) {
                 return
@@ -257,11 +257,11 @@ export class MediaService {
             currentPlayListSubscribers.forEach(element => {
                 this.sendResp(element, playListId, currentPlayList)
             })
-            logger.info('[media]' + socket.id + ' play ' + playListId)
+            logger.info('[media] ' + socket.id + ' play ' + playListId)
         })
 
         room.onMessage('pause', (socket, msg) => {
-            logger.info('[media]' + socket.id + ' requested to pause ' + msg.playListId + ' by user: ' + msg.userToken)
+            logger.info('[media] ' + socket.id + ' requested to pause ' + msg.playListId + ' by user: ' + msg.userToken)
             const userToken = msg.userToken
             if (this.adminUserTokens.indexOf(userToken) < 0) {
                 return
@@ -280,11 +280,11 @@ export class MediaService {
             currentPlayListSubscribers.forEach(element => {
                 this.sendResp(element, playListId, currentPlayList)
             })
-            logger.info('[media]' + socket.id + ' pause ' + playListId)
+            logger.info('[media] ' + socket.id + ' pause ' + playListId)
         })
 
         room.onMessage('stop', (socket, msg) => {
-            logger.info('[media]' + socket.id + ' requested to stop ' + msg.playListId + ' by user: ' + msg.userToken)
+            logger.info('[media] ' + socket.id + ' requested to stop ' + msg.playListId + ' by user: ' + msg.userToken)
             const userToken = msg.userToken
             if (this.adminUserTokens.indexOf(userToken) < 0) {
                 return
@@ -304,11 +304,11 @@ export class MediaService {
             currentPlayListSubscribers.forEach(element => {
                 this.sendResp(element, playListId, currentPlayList)
             })
-            logger.info('[media]' + socket.id + ' stop ' + playListId)
+            logger.info('[media] ' + socket.id + ' stop ' + playListId)
         })
 
         room.onMessage('seek', (socket, msg) => {
-            logger.info('[media]' + socket.id + ' requested to seek ' + msg.playListId + ' by user: ' + msg.userToken)
+            logger.info('[media] ' + socket.id + ' requested to seek ' + msg.playListId + ' by user: ' + msg.userToken)
             const userToken = msg.userToken
             if (this.adminUserTokens.indexOf(userToken) < 0) {
                 return
@@ -327,11 +327,11 @@ export class MediaService {
             currentPlayListSubscribers.forEach(element => {
                 this.sendResp(element, playListId, currentPlayList)
             })
-            logger.info('[media]' + socket.id + ' seek ' + playListId)
+            logger.info('[media] ' + socket.id + ' seek ' + playListId)
         })
 
         room.onMessage('volume', (socket, msg) => {
-            logger.info('[media]' + socket.id + ' requested to volume ' + msg.playListId + ' by user: ' + msg.userToken)
+            logger.info('[media] ' + socket.id + ' requested to volume ' + msg.playListId + ' by user: ' + msg.userToken)
             const userToken = msg.userToken
             if (this.adminUserTokens.indexOf(userToken) < 0) {
                 return
@@ -350,11 +350,11 @@ export class MediaService {
             currentPlayListSubscribers.forEach(element => {
                 this.sendResp(element, playListId, currentPlayList)
             })
-            logger.info('[media]' + socket.id + ' volume ' + playListId)
+            logger.info('[media] ' + socket.id + ' volume ' + playListId)
         })
 
         room.onMessage('switch', async (socket, msg) => {
-            logger.info('[media]' + socket.id + ' requested to switch ' + msg.playListId + ' by user: ' + msg.userToken)
+            logger.info('[media] ' + socket.id + ' requested to switch ' + msg.playListId + ' by user: ' + msg.userToken)
             const userToken = msg.userToken
             if (this.adminUserTokens.indexOf(userToken) < 0) {
                 return
@@ -389,7 +389,7 @@ export class MediaService {
             currentPlayListSubscribers.forEach(element => {
                 this.sendResp(element, playListId, currentPlayList)
             })
-            logger.info('[media]' + socket.id + ' switch ' + playListId)
+            logger.info('[media] ' + socket.id + ' switch ' + playListId)
         })
     }
 
