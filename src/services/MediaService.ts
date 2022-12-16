@@ -11,7 +11,7 @@ export class MediaService {
     private app: express.Express;
     private logger: winston.Logger;
     private prisma: PrismaClient;
-    private playLists: { [id: string]: any } = {}
+    private playLists: { [id: string]: IMediaData } = {}
     private playListSubscribers: { [id: string]: Client[] } = {}
     private deletingMediaIds: string[] = []
     private adminUserTokens: string[] = []
@@ -120,11 +120,11 @@ export class MediaService {
                     if (!Object.hasOwnProperty.call(playLists, playListId)) {
                         playLists[playListId] = {
                             mediaId: media.id,
-                            mediaDuration: media.duration,
+                            duration: media.duration,
                             filePath: media.filePath,
                             isPlaying: true,
                             time: 0,
-                        }
+                        } as IMediaData;
                     }
 
                     if (!lastVideo) {
@@ -403,6 +403,104 @@ export class MediaService {
             })
             logger.info('[media] ' + client.id + ' switch ' + playListId)
         })
+
+        room.setSimulationInterval(this.update);
+    }
+
+    async update(deltaTime: number) {
+        const prisma = this.prisma;
+        const playLists = this.playLists;
+        const playListSubscribers = this.playListSubscribers;
+        const deletingMediaIds = this.deletingMediaIds;
+        const deletingPlayLists: string[] = []
+        for (const playListId in playLists) {
+            if (!Object.hasOwnProperty.call(playLists, playListId)) {
+                continue
+            }
+            const playList = playLists[playListId]
+            if (!playList.isPlaying) {
+                continue
+            }
+            const indexOfDeletingMedia = deletingMediaIds.indexOf(playList.mediaId)
+            playList.time += deltaTime * 0.001
+            if (indexOfDeletingMedia >= 0 || playList.time >= playList.duration) {
+                // Load new meida to play
+                const medias = await prisma.videos.findMany({
+                    where: {
+                        playListId: playListId,
+                    },
+                    orderBy: {
+                        sortOrder: 'asc',
+                    },
+                })
+                // Find index of new media
+                let indexOfNewMedia = -1
+                for (let index = 0; index < medias.length; ++index) {
+                    const media = medias[index]
+                    if (media.id != playList.mediaId) {
+                        continue
+                    }
+                    indexOfNewMedia = index + 1
+                    if (indexOfNewMedia >= medias.length) {
+                        indexOfNewMedia = 0
+                    }
+                    break
+                }
+                // Delete the media after change to new video
+                if (indexOfDeletingMedia >= 0) {
+                    deletingMediaIds.splice(indexOfDeletingMedia, 1)
+                    if (medias.length == 1) {
+                        indexOfNewMedia = -1
+                    }
+                    await prisma.videos.delete({
+                        where: {
+                            id: playList.mediaId,
+                        },
+                    })
+                }
+                // Setup new media data to playlist
+                if (indexOfNewMedia >= 0) {
+                    const media = medias[indexOfNewMedia]
+                    playList.mediaId = media.id
+                    playList.duration = media.duration
+                    playList.filePath = media.filePath
+                    playList.isPlaying = true
+                    playList.time = 0
+                    if (Object.hasOwnProperty.call(playListSubscribers, playListId)) {
+                        for (const subscriber of playListSubscribers[playListId]) {
+                            subscriber.send('resp', {
+                                playListId: playListId,
+                                mediaId: playList.mediaId,
+                                duration: playList.duration,
+                                filePath: playList.filePath,
+                                isPlaying: playList.isPlaying,
+                                time: playList.time,
+                                volume: playList.volume,
+                            } as IMediaResp)
+                        }
+                    }
+                } else {
+                    deletingPlayLists.push(playListId)
+                    if (Object.hasOwnProperty.call(playListSubscribers, playListId)) {
+                        for (const subscriber of playListSubscribers[playListId]) {
+                            subscriber.send('resp', {
+                                playListId: playListId,
+                                mediaId: '',
+                                duration: 0,
+                                filePath: '',
+                                isPlaying: false,
+                                time: 0,
+                                volume: 0,
+                            } as IMediaResp)
+                        }
+                    }
+                }
+            }
+        }
+        // Delete empty playlists
+        for (const playListId of deletingPlayLists) {
+            delete playLists[playListId]
+        }
     }
 
     public onDisconnect(client: Client) {
@@ -418,4 +516,23 @@ export class MediaService {
             }
         }
     }
+}
+
+interface IMediaData {
+    mediaId: string,
+    duration: number,
+    filePath: string,
+    isPlaying: boolean,
+    time: number,
+    volume: number,
+}
+
+interface IMediaResp {
+    playListId: string;
+    mediaId: string;
+    duration: number;
+    filePath: string;
+    isPlaying: boolean;
+    time: number;
+    volume: number;
 }
