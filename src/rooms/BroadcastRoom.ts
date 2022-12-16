@@ -1,4 +1,5 @@
-import { Room, Client } from "colyseus";
+import { Room, Client, ServerError } from "colyseus";
+import http from "http";
 import winston from "winston";
 import { getLogger } from "..";
 import { BroadcastState } from "./schema/BroadcastState";
@@ -6,7 +7,7 @@ import { BroadcastState } from "./schema/BroadcastState";
 export class BroadcastRoom extends Room<BroadcastState> {
   private logger: winston.Logger;
 
-  onCreate (options: any) {
+  onCreate(options: any) {
     this.logger = getLogger();
     this.setState(new BroadcastState());
 
@@ -14,23 +15,30 @@ export class BroadcastRoom extends Room<BroadcastState> {
     this.onMessage("other", (client, message) => this.onOther(this, client, message));
   }
 
-  onAll (self: BroadcastRoom, client: Client, message: any) {
+  onAll(self: BroadcastRoom, client: Client, message: any) {
     self.broadcast("all", message);
   }
 
-  onOther (self: BroadcastRoom, client: Client, message: any) {
+  onOther(self: BroadcastRoom, client: Client, message: any) {
     self.broadcast("other", message, { except: client });
   }
 
-  onJoin (client: Client, options: any) {
+  onAuth(client: Client, options: any, request: http.IncomingMessage) {
+    const secretKeys = JSON.parse(process.env.SECRET_KEYS || "[]")
+    if (secretKeys.indexOf(options.secret) < 0) {
+      throw new ServerError(400, "Unauthorized");
+    }
+  }
+
+  onJoin(client: Client, options: any) {
     this.logger.info(`[broadcast] ${client.sessionId} joined!`);
   }
 
-  onLeave (client: Client, consented: boolean) {
+  onLeave(client: Client, consented: boolean) {
     this.logger.info(`[broadcast] ${client.sessionId} left!`);
   }
 
-  onDispose () {
+  onDispose() {
     this.logger.info(`[broadcast] ${this.roomId} "disposing...`);
   }
 

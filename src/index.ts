@@ -38,10 +38,6 @@ if (process.env.NODE_ENV !== 'production') {
     }));
 }
 
-export function getAppSecret(): string {
-    return process.env.APP_SECRET || "secret";
-}
-
 export function isTestModeEnabled(): boolean {
     return process.env.ENABLE_TEST_MODE ? (Number(process.env.ENABLE_TEST_MODE!) > 0) : false;
 }
