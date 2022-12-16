@@ -49,28 +49,35 @@ export class MediaService {
 
     setupRoutes() {
         const app = this.app;
+        const prisma = this.prisma;
+        const playLists = this.playLists;
+        const playListSubscribers = this.playListSubscribers;
+        const deletingMediaIds = this.deletingMediaIds;
+        const adminUserTokens = this.adminUserTokens;
+        const validateSystem = this.validateSystem;
+        const validateUser = this.validateUser;
 
         app.use(fileupload());
         app.use('/media/uploads', express.static('uploads'));
 
-        app.post('/media/add-user', this.validateSystem, async (req, res) => {
+        app.post('/media/add-user', validateSystem, async (req, res) => {
             const userToken = req.body.userToken
-            if (this.adminUserTokens.indexOf(userToken) < 0) {
-                this.adminUserTokens.push(userToken)
+            if (adminUserTokens.indexOf(userToken) < 0) {
+                adminUserTokens.push(userToken)
             }
             res.sendStatus(200)
         })
 
-        app.post('/media/remove-user', this.validateSystem, async (req, res) => {
+        app.post('/media/remove-user', validateSystem, async (req, res) => {
             const userToken = req.body.userToken
-            const index = this.adminUserTokens.indexOf(userToken)
+            const index = adminUserTokens.indexOf(userToken)
             if (index >= 0) {
-                this.adminUserTokens.splice(index, 1)
+                adminUserTokens.splice(index, 1)
             }
             res.sendStatus(200)
         })
 
-        app.post('/media/upload', this.validateUser, async (req: express.Request, res: express.Response) => {
+        app.post('/media/upload', validateUser, async (req: express.Request, res: express.Response) => {
             try {
                 if (!req.files) {
                     // No files
@@ -89,7 +96,7 @@ export class MediaService {
                         fullSavePath
                     )
 
-                    const lastVideo = await this.prisma.videos.findFirst({
+                    const lastVideo = await prisma.videos.findFirst({
                         where: {
                             playListId: playListId,
                         },
@@ -99,7 +106,7 @@ export class MediaService {
                     })
 
                     // Store video to database
-                    const media = await this.prisma.videos.create({
+                    const media = await prisma.videos.create({
                         data: {
                             id: id,
                             playListId: playListId,
@@ -110,8 +117,8 @@ export class MediaService {
                     })
 
                     // Create new playlist if it not existed
-                    if (!Object.hasOwnProperty.call(this.playLists, playListId)) {
-                        this.playLists[playListId] = {
+                    if (!Object.hasOwnProperty.call(playLists, playListId)) {
+                        playLists[playListId] = {
                             mediaId: media.id,
                             mediaDuration: media.duration,
                             filePath: media.filePath,
@@ -122,10 +129,10 @@ export class MediaService {
 
                     if (!lastVideo) {
                         // This is first video
-                        if (!Object.hasOwnProperty.call(this.playListSubscribers, playListId)) {
-                            this.playListSubscribers[playListId] = []
+                        if (!Object.hasOwnProperty.call(playListSubscribers, playListId)) {
+                            playListSubscribers[playListId] = []
                         }
-                        const currentPlayListSubscribers = this.playListSubscribers[playListId]
+                        const currentPlayListSubscribers = playListSubscribers[playListId]
                         for (const currentPlayListSubscriber of currentPlayListSubscribers) {
                             currentPlayListSubscriber.send('resp', {
                                 playListId: playListId,
@@ -146,13 +153,13 @@ export class MediaService {
             }
         })
 
-        app.delete('/media/:id', this.validateUser, async (req, res) => {
-            this.deletingMediaIds.push(req.params.id)
+        app.delete('/media/:id', validateUser, async (req, res) => {
+            deletingMediaIds.push(req.params.id)
             res.status(200).send()
         })
 
         app.get('/media/:playListId', async (req, res) => {
-            const videos = await this.prisma.videos.findMany({
+            const videos = await prisma.videos.findMany({
                 where: {
                     playListId: req.params.playListId,
                 },
@@ -163,7 +170,7 @@ export class MediaService {
             // Don't include deleting media
             for (let index = videos.length - 1; index >= 0; --index) {
                 const video = videos[index]
-                if (this.deletingMediaIds.indexOf(video.id) >= 0) {
+                if (deletingMediaIds.indexOf(video.id) >= 0) {
                     videos.splice(index, 1)
                 }
             }
@@ -216,158 +223,164 @@ export class MediaService {
 
     public onCreateRoom(room: MediaRoom) {
         const logger = this.logger;
-        room.onMessage('sub', (socket, msg) => {
-            logger.info('[media] ' + socket.id + ' requested to sub ' + msg.playListId)
+        const prisma = this.prisma;
+        const playLists = this.playLists;
+        const playListSubscribers = this.playListSubscribers;
+        const adminUserTokens = this.adminUserTokens;
+        const sendResp = this.sendResp;
+
+        room.onMessage('sub', (client, msg) => {
+            logger.info('[media] ' + client.id + ' requested to sub ' + msg.playListId)
             const playListId = msg.playListId
-            if (!Object.hasOwnProperty.call(this.playListSubscribers, playListId)) {
-                this.playListSubscribers[playListId] = []
+            if (!Object.hasOwnProperty.call(playListSubscribers, playListId)) {
+                playListSubscribers[playListId] = []
             }
-            const currentPlayListSubscribers = this.playListSubscribers[playListId]
-            if (currentPlayListSubscribers.indexOf(socket) < 0) {
-                currentPlayListSubscribers.push(socket)
-                logger.info('[media] ' + socket.id + ' sub ' + playListId)
+            const currentPlayListSubscribers = playListSubscribers[playListId]
+            if (currentPlayListSubscribers.indexOf(client) < 0) {
+                currentPlayListSubscribers.push(client)
+                logger.info('[media] ' + client.id + ' sub ' + playListId)
             }
             // Find the playlist, if found then `resp`
-            if (!Object.hasOwnProperty.call(this.playLists, playListId)) {
+            if (!Object.hasOwnProperty.call(playLists, playListId)) {
                 return
             }
-            const currentPlayList = this.playLists[playListId]
+            const currentPlayList = playLists[playListId]
             // Response current media to the client
-            this.sendResp(socket, playListId, currentPlayList)
+            sendResp(client, playListId, currentPlayList)
         })
 
-        room.onMessage('play', (socket, msg) => {
-            logger.info('[media] ' + socket.id + ' requested to play ' + msg.playListId + ' by user: ' + msg.userToken)
+        room.onMessage('play', (client, msg) => {
+            logger.info('[media] ' + client.id + ' requested to play ' + msg.playListId + ' by user: ' + msg.userToken)
             const userToken = msg.userToken
-            if (this.adminUserTokens.indexOf(userToken) < 0) {
+            if (adminUserTokens.indexOf(userToken) < 0) {
                 return
             }
             const playListId = msg.playListId
-            if (!Object.hasOwnProperty.call(this.playLists, playListId)) {
+            if (!Object.hasOwnProperty.call(playLists, playListId)) {
                 return
             }
-            const currentPlayList = this.playLists[playListId]
-            if (!Object.hasOwnProperty.call(this.playListSubscribers, playListId)) {
-                this.playListSubscribers[playListId] = []
+            const currentPlayList = playLists[playListId]
+            if (!Object.hasOwnProperty.call(playListSubscribers, playListId)) {
+                playListSubscribers[playListId] = []
             }
-            const currentPlayListSubscribers = this.playListSubscribers[playListId]
+            const currentPlayListSubscribers = playListSubscribers[playListId]
             currentPlayList.isPlaying = true
-            this.playLists[playListId] = currentPlayList
+            playLists[playListId] = currentPlayList
             currentPlayListSubscribers.forEach(element => {
-                this.sendResp(element, playListId, currentPlayList)
+                sendResp(element, playListId, currentPlayList)
             })
-            logger.info('[media] ' + socket.id + ' play ' + playListId)
+            logger.info('[media] ' + client.id + ' play ' + playListId)
         })
 
-        room.onMessage('pause', (socket, msg) => {
-            logger.info('[media] ' + socket.id + ' requested to pause ' + msg.playListId + ' by user: ' + msg.userToken)
+        room.onMessage('pause', (client, msg) => {
+            logger.info('[media] ' + client.id + ' requested to pause ' + msg.playListId + ' by user: ' + msg.userToken)
             const userToken = msg.userToken
-            if (this.adminUserTokens.indexOf(userToken) < 0) {
+            if (adminUserTokens.indexOf(userToken) < 0) {
                 return
             }
             const playListId = msg.playListId
-            if (!Object.hasOwnProperty.call(this.playLists, playListId)) {
+            if (!Object.hasOwnProperty.call(playLists, playListId)) {
                 return
             }
-            const currentPlayList = this.playLists[playListId]
-            if (!Object.hasOwnProperty.call(this.playListSubscribers, playListId)) {
-                this.playListSubscribers[playListId] = []
+            const currentPlayList = playLists[playListId]
+            if (!Object.hasOwnProperty.call(playListSubscribers, playListId)) {
+                playListSubscribers[playListId] = []
             }
-            const currentPlayListSubscribers = this.playListSubscribers[playListId]
+            const currentPlayListSubscribers = playListSubscribers[playListId]
             currentPlayList.isPlaying = false
-            this.playLists[playListId] = currentPlayList
+            playLists[playListId] = currentPlayList
             currentPlayListSubscribers.forEach(element => {
-                this.sendResp(element, playListId, currentPlayList)
+                sendResp(element, playListId, currentPlayList)
             })
-            logger.info('[media] ' + socket.id + ' pause ' + playListId)
+            logger.info('[media] ' + client.id + ' pause ' + playListId)
         })
 
-        room.onMessage('stop', (socket, msg) => {
-            logger.info('[media] ' + socket.id + ' requested to stop ' + msg.playListId + ' by user: ' + msg.userToken)
+        room.onMessage('stop', (client, msg) => {
+            logger.info('[media] ' + client.id + ' requested to stop ' + msg.playListId + ' by user: ' + msg.userToken)
             const userToken = msg.userToken
-            if (this.adminUserTokens.indexOf(userToken) < 0) {
+            if (adminUserTokens.indexOf(userToken) < 0) {
                 return
             }
             const playListId = msg.playListId
-            if (!Object.hasOwnProperty.call(this.playLists, playListId)) {
+            if (!Object.hasOwnProperty.call(playLists, playListId)) {
                 return
             }
-            const currentPlayList = this.playLists[playListId]
-            if (!Object.hasOwnProperty.call(this.playListSubscribers, playListId)) {
-                this.playListSubscribers[playListId] = []
+            const currentPlayList = playLists[playListId]
+            if (!Object.hasOwnProperty.call(playListSubscribers, playListId)) {
+                playListSubscribers[playListId] = []
             }
-            const currentPlayListSubscribers = this.playListSubscribers[playListId]
+            const currentPlayListSubscribers = playListSubscribers[playListId]
             currentPlayList.isPlaying = false
             currentPlayList.time = 0
-            this.playLists[playListId] = currentPlayList
+            playLists[playListId] = currentPlayList
             currentPlayListSubscribers.forEach(element => {
-                this.sendResp(element, playListId, currentPlayList)
+                sendResp(element, playListId, currentPlayList)
             })
-            logger.info('[media] ' + socket.id + ' stop ' + playListId)
+            logger.info('[media] ' + client.id + ' stop ' + playListId)
         })
 
-        room.onMessage('seek', (socket, msg) => {
-            logger.info('[media] ' + socket.id + ' requested to seek ' + msg.playListId + ' by user: ' + msg.userToken)
+        room.onMessage('seek', (client, msg) => {
+            logger.info('[media] ' + client.id + ' requested to seek ' + msg.playListId + ' by user: ' + msg.userToken)
             const userToken = msg.userToken
-            if (this.adminUserTokens.indexOf(userToken) < 0) {
+            if (adminUserTokens.indexOf(userToken) < 0) {
                 return
             }
             const playListId = msg.playListId
-            if (!Object.hasOwnProperty.call(this.playLists, playListId)) {
+            if (!Object.hasOwnProperty.call(playLists, playListId)) {
                 return
             }
-            const currentPlayList = this.playLists[playListId]
-            if (!Object.hasOwnProperty.call(this.playListSubscribers, playListId)) {
-                this.playListSubscribers[playListId] = []
+            const currentPlayList = playLists[playListId]
+            if (!Object.hasOwnProperty.call(playListSubscribers, playListId)) {
+                playListSubscribers[playListId] = []
             }
-            const currentPlayListSubscribers = this.playListSubscribers[playListId]
+            const currentPlayListSubscribers = playListSubscribers[playListId]
             currentPlayList.time = msg.time
-            this.playLists[playListId] = currentPlayList
+            playLists[playListId] = currentPlayList
             currentPlayListSubscribers.forEach(element => {
-                this.sendResp(element, playListId, currentPlayList)
+                sendResp(element, playListId, currentPlayList)
             })
-            logger.info('[media] ' + socket.id + ' seek ' + playListId)
+            logger.info('[media] ' + client.id + ' seek ' + playListId)
         })
 
-        room.onMessage('volume', (socket, msg) => {
-            logger.info('[media] ' + socket.id + ' requested to volume ' + msg.playListId + ' by user: ' + msg.userToken)
+        room.onMessage('volume', (client, msg) => {
+            logger.info('[media] ' + client.id + ' requested to volume ' + msg.playListId + ' by user: ' + msg.userToken)
             const userToken = msg.userToken
-            if (this.adminUserTokens.indexOf(userToken) < 0) {
+            if (adminUserTokens.indexOf(userToken) < 0) {
                 return
             }
             const playListId = msg.playListId
-            if (!Object.hasOwnProperty.call(this.playLists, playListId)) {
+            if (!Object.hasOwnProperty.call(playLists, playListId)) {
                 return
             }
-            const currentPlayList = this.playLists[playListId]
-            if (!Object.hasOwnProperty.call(this.playListSubscribers, playListId)) {
-                this.playListSubscribers[playListId] = []
+            const currentPlayList = playLists[playListId]
+            if (!Object.hasOwnProperty.call(playListSubscribers, playListId)) {
+                playListSubscribers[playListId] = []
             }
-            const currentPlayListSubscribers = this.playListSubscribers[playListId]
+            const currentPlayListSubscribers = playListSubscribers[playListId]
             currentPlayList.volume = msg.volume
-            this.playLists[playListId] = currentPlayList
+            playLists[playListId] = currentPlayList
             currentPlayListSubscribers.forEach(element => {
-                this.sendResp(element, playListId, currentPlayList)
+                sendResp(element, playListId, currentPlayList)
             })
-            logger.info('[media] ' + socket.id + ' volume ' + playListId)
+            logger.info('[media] ' + client.id + ' volume ' + playListId)
         })
 
-        room.onMessage('switch', async (socket, msg) => {
-            logger.info('[media] ' + socket.id + ' requested to switch ' + msg.playListId + ' by user: ' + msg.userToken)
+        room.onMessage('switch', async (client, msg) => {
+            logger.info('[media] ' + client.id + ' requested to switch ' + msg.playListId + ' by user: ' + msg.userToken)
             const userToken = msg.userToken
-            if (this.adminUserTokens.indexOf(userToken) < 0) {
+            if (adminUserTokens.indexOf(userToken) < 0) {
                 return
             }
             const playListId = msg.playListId
-            if (!Object.hasOwnProperty.call(this.playLists, playListId)) {
+            if (!Object.hasOwnProperty.call(playLists, playListId)) {
                 return
             }
-            const currentPlayList = this.playLists[playListId]
-            if (!Object.hasOwnProperty.call(this.playListSubscribers, playListId)) {
-                this.playListSubscribers[playListId] = []
+            const currentPlayList = playLists[playListId]
+            if (!Object.hasOwnProperty.call(playListSubscribers, playListId)) {
+                playListSubscribers[playListId] = []
             }
             const mediaId = msg.mediaId
-            const media = await this.prisma.videos.findFirst({
+            const media = await prisma.videos.findFirst({
                 where: {
                     id: mediaId,
                     playListId: playListId,
@@ -383,23 +396,25 @@ export class MediaService {
             currentPlayList.filePath = media.filePath
             currentPlayList.time = 0
             currentPlayList.duration = media.duration
-            const currentPlayListSubscribers = this.playListSubscribers[playListId]
-            this.playLists[playListId] = currentPlayList
+            const currentPlayListSubscribers = playListSubscribers[playListId]
+            playLists[playListId] = currentPlayList
             currentPlayListSubscribers.forEach(element => {
-                this.sendResp(element, playListId, currentPlayList)
+                sendResp(element, playListId, currentPlayList)
             })
-            logger.info('[media] ' + socket.id + ' switch ' + playListId)
+            logger.info('[media] ' + client.id + ' switch ' + playListId)
         })
     }
 
     public onDisconnect(client: Client) {
-        for (const key in this.playListSubscribers) {
-            if (Object.hasOwnProperty.call(this.playListSubscribers, key)) {
-                const currentPlayListSubscribers = this.playListSubscribers[key]
-                const index = currentPlayListSubscribers.indexOf(client);
-                if (index >= 0) {
-                    currentPlayListSubscribers.splice(index, 1);
-                }
+        const playListSubscribers = this.playListSubscribers;
+        for (const key in playListSubscribers) {
+            if (!Object.hasOwnProperty.call(playListSubscribers, key)) {
+                continue;
+            }
+            const currentPlayListSubscribers = playListSubscribers[key]
+            const index = currentPlayListSubscribers.indexOf(client);
+            if (index >= 0) {
+                currentPlayListSubscribers.splice(index, 1);
             }
         }
     }
