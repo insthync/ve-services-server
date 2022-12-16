@@ -11,7 +11,6 @@ export class BroadcastRoom extends Room<BroadcastState> {
     this.setState(new BroadcastState());
 
     this.onMessage("all", (client, message) => this.onAll(this, client, message));
-
     this.onMessage("other", (client, message) => this.onOther(this, client, message));
   }
 
