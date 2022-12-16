@@ -12,8 +12,8 @@ import { Profanity, ProfanityOptions } from '@2toad/profanity';
 import cors from "cors";
 import morgan from "morgan";
 import winston from "winston";
-import fileupload from 'express-fileupload'
 import 'dotenv/config'
+import { ListingService } from "./services/ListingService";
 import { MediaService } from "./services/MediaService";
 
 const logger: winston.Logger = winston.createLogger({
@@ -30,6 +30,7 @@ const logger: winston.Logger = winston.createLogger({
     ],
 });
 
+let listingService: ListingService;
 let mediaService: MediaService;
 
 if (process.env.NODE_ENV !== 'production') {
@@ -44,6 +45,10 @@ export function isTestModeEnabled(): boolean {
 
 export function getLogger(): winston.Logger {
     return logger;
+}
+
+export function getListingService(): ListingService {
+    return listingService;
 }
 
 export function getMediaService(): MediaService {
@@ -118,6 +123,9 @@ function setup(app: express.Express, server: http.Server): Server {
     app.get("/", (req, res) => {
         res.send("It's time to kick ass and chew bubblegum!");
     });
+
+    // Listing
+    listingService = new ListingService(app, logger);
 
     // Media
     mediaService = new MediaService(app, logger);
