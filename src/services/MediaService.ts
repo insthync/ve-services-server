@@ -6,7 +6,6 @@ import { nanoid } from "nanoid";
 import { getVideoDurationInSeconds } from 'get-video-duration'
 import { Client } from "colyseus";
 import { MediaRoom } from "../rooms/MediaRoom";
-import { getLogger } from "..";
 
 export class MediaService {
     private app: express.Express;
