@@ -51,9 +51,9 @@ export class MediaService {
         const app = this.app;
 
         app.use(fileupload());
-        app.use('/uploads', express.static('uploads'));
+        app.use('/media/uploads', express.static('uploads'));
 
-        app.post('/add-user', this.validateSystem, async (req, res) => {
+        app.post('/media/add-user', this.validateSystem, async (req, res) => {
             const userToken = req.body.userToken
             if (this.adminUserTokens.indexOf(userToken) < 0) {
                 this.adminUserTokens.push(userToken)
@@ -61,7 +61,7 @@ export class MediaService {
             res.sendStatus(200)
         })
 
-        app.post('/remove-user', this.validateSystem, async (req, res) => {
+        app.post('/media/remove-user', this.validateSystem, async (req, res) => {
             const userToken = req.body.userToken
             const index = this.adminUserTokens.indexOf(userToken)
             if (index >= 0) {
@@ -70,7 +70,7 @@ export class MediaService {
             res.sendStatus(200)
         })
 
-        app.post('/upload', this.validateUser, async (req: express.Request, res: express.Response) => {
+        app.post('/media/upload', this.validateUser, async (req: express.Request, res: express.Response) => {
             try {
                 if (!req.files) {
                     // No files
@@ -146,12 +146,12 @@ export class MediaService {
             }
         })
 
-        app.delete('/:id', this.validateUser, async (req, res) => {
+        app.delete('/media/:id', this.validateUser, async (req, res) => {
             this.deletingMediaIds.push(req.params.id)
             res.status(200).send()
         })
 
-        app.get('/:playListId', async (req, res) => {
+        app.get('/media/:playListId', async (req, res) => {
             const videos = await this.prisma.videos.findMany({
                 where: {
                     playListId: req.params.playListId,
