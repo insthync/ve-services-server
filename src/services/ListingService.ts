@@ -1,4 +1,3 @@
-
 import winston from "winston";
 import express from "express";
 import { Client } from "colyseus";
