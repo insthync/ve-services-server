@@ -14,6 +14,7 @@ export class ChatRoom extends Room<ChatRoomState> {
     this.chatService = getChatService();
     this.chatService.onCreateRoom(this);
     this.setState(new ChatRoomState());
+    this.logger.info(`[chat] ${this.roomId} "created`);
   }
 
   onAuth(client: Client, options: any, request: http.IncomingMessage) {

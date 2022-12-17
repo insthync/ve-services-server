@@ -14,6 +14,7 @@ export class ListingRoom extends Room<ListingRoomState> {
     this.listingService = getListingService();
     this.listingService.onCreateRoom(this);
     this.setState(new ListingRoomState());
+    this.logger.info(`[listing] ${this.roomId} "created`);
   }
 
   onAuth(client: Client, options: any, request: http.IncomingMessage) {

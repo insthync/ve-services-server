@@ -13,6 +13,7 @@ export class MediaRoom extends Room<MediaRoomState> {
         this.mediaService = getMediaService();
         this.mediaService.onCreateRoom(this);
         this.setState(new MediaRoomState());
+        this.logger.info(`[media] ${this.roomId} "created`);
     }
 
     onJoin(client: Client, options: any) {
