@@ -1,16 +1,19 @@
 import { Room, Client, ServerError } from "colyseus";
 import http from "http";
 import winston from "winston";
-import { getLogger } from "..";
+import { getLogger, getChatService } from "..";
+import { ChatService } from "../services/ChatService";
 import { ChatRoomState } from "./schema/ChatRoomState";
 
 export class ChatRoom extends Room<ChatRoomState> {
   private logger: winston.Logger;
+  private chatService: ChatService;
 
   onCreate(options: any) {
     this.logger = getLogger();
+    this.chatService = getChatService();
+    this.chatService.onCreateRoom(this);
     this.setState(new ChatRoomState());
-
   }
 
   onAuth(client: Client, options: any, request: http.IncomingMessage) {
@@ -21,15 +24,15 @@ export class ChatRoom extends Room<ChatRoomState> {
   }
 
   onJoin(client: Client, options: any) {
-    this.logger.info(`[Chat] ${client.sessionId} joined!`);
+    this.logger.info(`[chat] ${client.sessionId} joined!`);
   }
 
   onLeave(client: Client, consented: boolean) {
-    this.logger.info(`[Chat] ${client.sessionId} left!`);
+    this.logger.info(`[chat] ${client.sessionId} left!`);
   }
 
   onDispose() {
-    this.logger.info(`[Chat] ${this.roomId} "disposing...`);
+    this.logger.info(`[chat] ${this.roomId} "disposing...`);
   }
 
 }

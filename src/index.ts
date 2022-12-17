@@ -13,6 +13,7 @@ import cors from "cors";
 import morgan from "morgan";
 import winston from "winston";
 import 'dotenv/config'
+import { ChatService } from "./services/ChatService";
 import { ListingService } from "./services/ListingService";
 import { MediaService } from "./services/MediaService";
 
@@ -30,6 +31,7 @@ const logger: winston.Logger = winston.createLogger({
     ],
 });
 
+let chatService: ChatService;
 let listingService: ListingService;
 let mediaService: MediaService;
 
@@ -45,6 +47,10 @@ export function isTestModeEnabled(): boolean {
 
 export function getLogger(): winston.Logger {
     return logger;
+}
+
+export function getChatService(): ChatService {
+    return chatService;
 }
 
 export function getListingService(): ListingService {
@@ -123,6 +129,9 @@ function setup(app: express.Express, server: http.Server): Server {
     app.get("/", (req, res) => {
         res.send("It's time to kick ass and chew bubblegum!");
     });
+
+    // Chat
+    chatService = new ChatService(app, logger, getProfanity());
 
     // Listing
     listingService = new ListingService(app, logger);
