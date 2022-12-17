@@ -25,16 +25,16 @@ export class ListingRoom extends Room<ListingRoomState> {
 
   onJoin(client: Client, options: any) {
     this.listingService.onConnect(client, options);
-    this.logger.info(`[broadcast] ${client.sessionId} joined!`);
+    this.logger.info(`[listing] ${client.sessionId} joined!`);
   }
 
   onLeave(client: Client, consented: boolean) {
     this.listingService.onDisconnect(client);
-    this.logger.info(`[broadcast] ${client.sessionId} left!`);
+    this.logger.info(`[listing] ${client.sessionId} left!`);
   }
 
   onDispose() {
-    this.logger.info(`[broadcast] ${this.roomId} "disposing...`);
+    this.logger.info(`[listing] ${this.roomId} "disposing...`);
   }
 
 }
