@@ -17,3 +17,29 @@ model Videos {
   duration         Float
   sortOrder        Int
 }
+
+model Group {
+  groupId     String     @id
+  title       String     @db.VarChar(150)
+  iconUrl     String?    @db.Text
+}
+
+model UserGroup {
+  userId      String     @db.VarChar(36)
+  groupId     String     @db.VarChar(36)
+  
+  @@id([userId, groupId])
+}
+
+model UserGroupInvitation {
+  userId      String     @db.VarChar(36)
+  groupId     String     @db.VarChar(36)
+  
+  @@id([userId, groupId])
+}
+
+model User {
+  userId      String     @id @db.VarChar(36)
+  name        String     @db.VarChar(150)
+  iconUrl     String?    @db.Text
+}
