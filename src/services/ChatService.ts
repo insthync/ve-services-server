@@ -10,9 +10,9 @@ export class ChatService {
     private logger: winston.Logger;
     private prisma: PrismaClient;
     private connectingUsers: { [id: string]: IClientData } = {}
-    private connections: { [id: string]: IClientEntry } = {}
-    private connectionsByName: { [name: string]: IClientEntry } = {}
-    private connectionsByGroupId: { [groupId: string]: { [id: string]: IClientEntry } } = {}
+    private connections: { [id: string]: Client } = {}
+    private connectionsByName: { [name: string]: Client } = {}
+    private connectionsByGroupId: { [groupId: string]: { [id: string]: Client } } = {}
 
     constructor(app: express.Express, logger: winston.Logger) {
         this.app = app;
@@ -121,7 +121,7 @@ export class ChatService {
         const targetClients = connectionsByGroupId[groupId]
         for (const targetUserId in targetClients) {
             const targetClient = targetClients[targetUserId]
-            targetClient.client.send("group-leave", {
+            targetClient.send("group-leave", {
                 groupId: groupId,
             })
         }
@@ -149,7 +149,7 @@ export class ChatService {
         })
         if (Object.prototype.hasOwnProperty.call(connections, userId)) {
             const connection = connections[userId]
-            connection.client.send("group-invitation-list", {
+            connection.send("group-invitation-list", {
                 list: groupList
             })
         }
@@ -178,7 +178,7 @@ export class ChatService {
 
         if (Object.prototype.hasOwnProperty.call(connections, userId)) {
             const connection = connections[userId]
-            connection.client.send("group-user-list", {
+            connection.send("group-user-list", {
                 groupId: groupId,
                 list: userList
             })
@@ -207,7 +207,7 @@ export class ChatService {
         })
         if (Object.prototype.hasOwnProperty.call(connections, userId)) {
             const connection = connections[userId]
-            connection.client.send("group-list", {
+            connection.send("group-list", {
                 list: groupList
             })
         }
@@ -244,10 +244,10 @@ export class ChatService {
         const targetClients = connectionsByGroupId[groupId]
         for (const targetUserId in targetClients) {
             const targetClient = targetClients[targetUserId]
-            targetClient.client.send("group-join", {
+            targetClient.send("group-join", {
                 "groupId": groupId,
-                "userId": targetClient.data.userId,
-                "name": targetClient.data.name,
+                "userId": targetClient.userData.userId,
+                "name": targetClient.userData.name,
             })
         }
         await NotifyGroupInvitation(userId)
@@ -259,9 +259,4 @@ interface IClientData {
     userId: string;
     name: string;
     connectionKey: string;
-}
-
-interface IClientEntry {
-    client: Client;
-    data: IClientData;
 }
