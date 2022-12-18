@@ -28,9 +28,9 @@ export class ChatService {
         const app = this.app;
         const prisma = this.prisma;
         const connectingUsers = this.connectingUsers;
-        const validateUser = this.validateSystem;
+        const validateSystem = this.validateSystem;
 
-        app.post('/chat/add-user', validateUser, async (req, res, next) => {
+        app.post('/chat/add-user', validateSystem, async (req, res, next) => {
             // Token is correct, then create user connection data
             const connectingUser = {
                 userId: req.body.userId,
@@ -66,7 +66,7 @@ export class ChatService {
             res.status(200).send(connectingUser)
         })
 
-        app.post('/chat/remove-user', validateUser, async (req, res, next) => {
+        app.post('/chat/remove-user', validateSystem, async (req, res, next) => {
             delete connectingUsers[req.body.userId]
             res.status(200).send()
         })
