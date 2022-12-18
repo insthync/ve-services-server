@@ -1,7 +1,7 @@
 import winston from "winston";
 import express from "express";
 import { Profanity } from "@2toad/profanity";
-import { PrismaClient } from '@prisma/client'
+import { PrismaClient, Group, User } from '@prisma/client'
 import { nanoid } from "nanoid";
 import { Client } from "colyseus";
 import { ChatRoom } from "../rooms/ChatRoom";
@@ -126,7 +126,7 @@ export class ChatService {
             const targetClient = targetClients[targetUserId]
             targetClient.send("group-leave", {
                 groupId: groupId,
-            })
+            } as IGroupLeaveResp)
         }
     }
 
@@ -154,7 +154,7 @@ export class ChatService {
             const connection = connections[userId]
             connection.send("group-invitation-list", {
                 list: groupList
-            })
+            } as IGroupInvitationListResp)
         }
     }
 
@@ -184,7 +184,7 @@ export class ChatService {
             connection.send("group-user-list", {
                 groupId: groupId,
                 list: userList
-            })
+            } as IGroupUserListResp)
         }
     }
 
@@ -212,7 +212,7 @@ export class ChatService {
             const connection = connections[userId]
             connection.send("group-list", {
                 list: groupList
-            })
+            } as IGroupListResp)
         }
     }
 
@@ -248,10 +248,10 @@ export class ChatService {
         for (const targetUserId in targetClients) {
             const targetClient = targetClients[targetUserId]
             targetClient.send("group-join", {
-                "groupId": groupId,
-                "userId": targetClient.userData.userId,
-                "name": targetClient.userData.name,
-            })
+                groupId: groupId,
+                userId: targetClient.userData.userId,
+                name: targetClient.userData.name,
+            } as IGroupJoinResp)
         }
         await NotifyGroupInvitation(userId)
         await NotifyGroup(userId)
@@ -331,14 +331,14 @@ export class ChatService {
             for (const targetUserId in connections) {
                 const targetClient = connections[targetUserId]
                 targetClient.send("local", {
-                    "userId": userId,
-                    "name": client.userData.name,
-                    "msg": profanity.censor(data.msg),
-                    "map": data.map,
-                    "x": data.x,
-                    "y": data.y,
-                    "z": data.z,
-                })
+                    userId: userId,
+                    name: client.userData.name,
+                    msg: profanity.censor(data.msg),
+                    map: data.map,
+                    x: data.x,
+                    y: data.y,
+                    z: data.z,
+                } as IChatResp)
             }
         })
 
@@ -350,10 +350,10 @@ export class ChatService {
             for (const targetUserId in connections) {
                 const targetClient = connections[targetUserId]
                 targetClient.send("global", {
-                    "userId": userId,
-                    "name": client.userData.name,
-                    "msg": profanity.censor(data.msg),
-                })
+                    userId: userId,
+                    name: client.userData.name,
+                    msg: profanity.censor(data.msg),
+                } as IChatResp)
             }
         })
 
@@ -368,19 +368,19 @@ export class ChatService {
             }
             const targetClient = connectionsByName[targetName]
             targetClient.send("whisper", {
-                "userId": userId,
-                "userId2": targetClient.userData.userId,
-                "name": client.userData.name,
-                "name2": targetClient.userData.name,
-                "msg": profanity.censor(data.msg),
-            })
+                userId: userId,
+                userId2: targetClient.userData.userId,
+                name: client.userData.name,
+                name2: targetClient.userData.name,
+                msg: profanity.censor(data.msg),
+            } as IChatResp)
             client.send("whisper", {
-                "userId": userId,
-                "userId2": targetClient.userData.userId,
-                "name": client.userData.name,
-                "name2": targetClient.userData.name,
-                "msg": profanity.censor(data.msg),
-            })
+                userId: userId,
+                userId2: targetClient.userData.userId,
+                name: client.userData.name,
+                name2: targetClient.userData.name,
+                msg: profanity.censor(data.msg),
+            } as IChatResp)
         })
 
         room.onMessage("whisper-by-id", (client, data) => {
@@ -394,19 +394,19 @@ export class ChatService {
             }
             const targetClient = connections[targetUserId]
             targetClient.send("whisper", {
-                "userId": userId,
-                "userId2": targetClient.userData.userId,
-                "name": client.userData.name,
-                "name2": targetClient.userData.name,
-                "msg": profanity.censor(data.msg),
-            })
+                userId: userId,
+                userId2: targetClient.userData.userId,
+                name: client.userData.name,
+                name2: targetClient.userData.name,
+                msg: profanity.censor(data.msg),
+            } as IChatResp)
             client.send("whisper", {
-                "userId": userId,
-                "userId2": targetClient.userData.userId,
-                "name": client.userData.name,
-                "name2": targetClient.userData.name,
-                "msg": profanity.censor(data.msg),
-            })
+                userId: userId,
+                userId2: targetClient.userData.userId,
+                name: client.userData.name,
+                name2: targetClient.userData.name,
+                msg: profanity.censor(data.msg),
+            } as IChatResp)
         })
 
         room.onMessage("group", (client, data) => {
@@ -430,11 +430,11 @@ export class ChatService {
             for (const targetUserId in targetClients) {
                 const targetClient = targetClients[targetUserId]
                 targetClient.send("group", {
-                    "groupId": groupId,
-                    "userId": userId,
-                    "name": client.userData.name,
-                    "msg": profanity.censor(data.msg),
-                })
+                    groupId: groupId,
+                    userId: userId,
+                    name: client.userData.name,
+                    msg: profanity.censor(data.msg),
+                } as IChatResp)
             }
         })
 
@@ -471,10 +471,10 @@ export class ChatService {
             connectionsByGroupId[groupId][userId] = client
             // Tell the client that the group was created
             client.send("create-group", {
-                "groupId": groupId,
-                "title": title,
-                "iconUrl": iconUrl,
-            })
+                groupId: groupId,
+                title: title,
+                iconUrl: iconUrl,
+            } as IGroupCreateResp)
         })
 
         room.onMessage("update-group", async (client, data) => {
@@ -511,10 +511,10 @@ export class ChatService {
             for (const targetUserId in targetClients) {
                 const targetClient = targetClients[targetUserId]
                 targetClient.send("update-group", {
-                    "groupId": groupId,
-                    "title": title,
-                    "iconUrl": iconUrl,
-                })
+                    groupId: groupId,
+                    title: title,
+                    iconUrl: iconUrl,
+                } as IGroupUpdateResp)
             }
         })
 
@@ -666,4 +666,52 @@ interface IClientData {
     userId: string;
     name: string;
     connectionKey: string;
+}
+
+interface IGroupCreateResp {
+    groupId: string;
+    title: string;
+    iconUrl: string;
+}
+
+interface IGroupUpdateResp {
+    groupId: string;
+    title: string;
+    iconUrl: string;
+}
+
+interface IGroupLeaveResp {
+    groupId: string;
+}
+
+interface IGroupInvitationListResp {
+    list: Group[];
+}
+
+interface IGroupUserListResp {
+    groupId: string;
+    list: User[];
+}
+
+interface IGroupListResp {
+    list: Group[];
+}
+
+interface IGroupJoinResp {
+    groupId: string;
+    userId: string;
+    name: string;
+}
+
+interface IChatResp {
+    groupId?: string;
+    userId: string;
+    userId2: string;
+    name: string;
+    name2: string
+    msg: string;
+    map?: string;
+    x?: number;
+    y?: number;
+    z?: number;
 }
