@@ -7,7 +7,7 @@
 
 using Colyseus.Schema;
 
-public partial class BroadcastState : Schema {
+public partial class BroadcastRoomState : Schema {
 
 }
 

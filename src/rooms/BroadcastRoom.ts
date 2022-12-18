@@ -2,14 +2,14 @@ import { Room, Client, ServerError } from "colyseus";
 import http from "http";
 import winston from "winston";
 import { getLogger } from "..";
-import { BroadcastState } from "./schema/BroadcastState";
+import { BroadcastRoomState } from "./schema/BroadcastRoomState";
 
-export class BroadcastRoom extends Room<BroadcastState> {
+export class BroadcastRoom extends Room<BroadcastRoomState> {
   private logger: winston.Logger;
 
   onCreate(options: any) {
     this.logger = getLogger();
-    this.setState(new BroadcastState());
+    this.setState(new BroadcastRoomState());
     this.onMessage("all", (client, message) => this.onAll(this, client, message));
     this.onMessage("other", (client, message) => this.onOther(this, client, message));
     this.logger.info(`[chat] ${this.roomId} "created`);
