@@ -141,7 +141,7 @@ export class MediaService {
                                 filePath: savePath,
                                 time: 0,
                                 duration: duration,
-                            })
+                            } as IMediaResp)
                         }
                     }
 
@@ -220,7 +220,7 @@ export class MediaService {
             time: currentPlayList.time,
             volume: currentPlayList.volume,
             duration: currentPlayList.duration,
-        })
+        } as IMediaResp)
     }
 
     public onCreateRoom(room: MediaRoom) {
