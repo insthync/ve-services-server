@@ -17,13 +17,6 @@ export class ChatRoom extends Room<ChatRoomState> {
     this.logger.info(`[chat] ${this.roomId} "created`);
   }
 
-  onAuth(client: Client, options: any, request: http.IncomingMessage) {
-    const secretKeys = JSON.parse(process.env.SECRET_KEYS || "[]")
-    if (secretKeys.indexOf(options.secret) < 0) {
-      throw new ServerError(400, "Unauthorized");
-    }
-  }
-
   onJoin(client: Client, options: any) {
     this.logger.info(`[chat] ${client.sessionId} joined!`);
   }
