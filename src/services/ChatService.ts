@@ -474,7 +474,7 @@ export class ChatService {
                 groupId: groupId,
                 title: title,
                 iconUrl: iconUrl,
-            } as IGroupCreateResp)
+            } as Group)
         })
 
         room.onMessage("update-group", async (client, data) => {
@@ -514,7 +514,7 @@ export class ChatService {
                     groupId: groupId,
                     title: title,
                     iconUrl: iconUrl,
-                } as IGroupUpdateResp)
+                } as Group)
             }
         })
 
@@ -666,18 +666,6 @@ interface IClientData {
     userId: string;
     name: string;
     connectionKey: string;
-}
-
-interface IGroupCreateResp {
-    groupId: string;
-    title: string;
-    iconUrl: string;
-}
-
-interface IGroupUpdateResp {
-    groupId: string;
-    title: string;
-    iconUrl: string;
 }
 
 interface IGroupLeaveResp {
