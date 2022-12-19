@@ -651,13 +651,11 @@ export class ChatService {
         })
 
         room.onMessage("leave-group", (client, data) => {
-            const groupId = data.groupId
-            GroupLeave(groupId, client.userData.userId)
+            GroupLeave(data.groupId, client.userData.userId)
         })
 
         room.onMessage("kick-user", (client, data) => {
-            const groupId = data.groupId
-            GroupLeave(groupId, data.userId)
+            GroupLeave(data.groupId, data.userId)
         })
     }
 }
