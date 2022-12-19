@@ -706,9 +706,9 @@ interface IGroupJoinResp {
 interface IChatResp {
     groupId?: string;
     userId: string;
-    userId2: string;
+    userId2?: string;
     name: string;
-    name2: string
+    name2?: string
     msg: string;
     map?: string;
     x?: number;
