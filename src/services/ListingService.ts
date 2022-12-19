@@ -48,20 +48,11 @@ export class ListingService {
     public onCreateRoom(room: ListingRoom) {
         const gameServers = this.gameServers;
 
-        room.onMessage('update', (client: Client, msg: any) => {
+        room.onMessage('update', (client: Client, msg: IGameServerData) => {
             const id = client.id;
             if (id !== undefined && id in gameServers) {
-                const gameServer: IGameServerData = {
-                    id: msg.id,
-                    address: msg.address,
-                    port: msg.port,
-                    title: msg.title,
-                    description: msg.description,
-                    map: msg.map,
-                    currentPlayer: msg.currentPlayer,
-                    maxPlayer: msg.maxPlayer,
-                };
-                gameServers[id] = gameServer;
+                msg.id = id;
+                gameServers[id] = msg;
             }
         });
     }
@@ -70,13 +61,13 @@ export class ListingService {
         const logger = this.logger;
         const gameServer: IGameServerData = {
             id: client.id,
-            address: options.address,
-            port: options.port,
-            title: options.title,
-            description: options.description,
-            map: options.map,
-            currentPlayer: options.currentPlayer,
-            maxPlayer: options.maxPlayer,
+            address: options.data.address,
+            port: options.data.port,
+            title: options.data.title,
+            description: options.data.description,
+            map: options.data.map,
+            currentPlayer: options.data.currentPlayer,
+            maxPlayer: options.data.maxPlayer,
         };
         this.gameServers[gameServer.id] = gameServer;
         logger.info(`[listing] Game-Server: ${client.id} connected.`);
