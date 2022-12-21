@@ -31,7 +31,7 @@ export class ListingService {
             });
         });
 
-        app.get('/listing/totalPlayer', (req, res) => {
+        app.get('/listing/total-player', (req, res) => {
             let totalPlayer = 0;
             for (const key in gameServers) {
                 if (Object.hasOwnProperty.call(gameServers, key)) {
