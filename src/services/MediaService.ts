@@ -14,7 +14,7 @@ export class MediaService {
     private playLists: { [id: string]: IMediaData } = {}
     private playListSubscribers: { [id: string]: Client[] } = {}
     private deletingMediaIds: string[] = []
-    private adminUserTokens: string[] = []
+    private adminUserIds: string[] = []
 
     constructor(app: express.Express, logger: winston.Logger) {
         this.app = app;
@@ -53,7 +53,7 @@ export class MediaService {
         const playLists = this.playLists;
         const playListSubscribers = this.playListSubscribers;
         const deletingMediaIds = this.deletingMediaIds;
-        const adminUserTokens = this.adminUserTokens;
+        const adminUserIds = this.adminUserIds;
         const validateSystem = this.validateSystem;
         const validateUser = this.validateUser;
 
@@ -61,18 +61,18 @@ export class MediaService {
         app.use('/media/uploads', express.static('uploads'));
 
         app.post('/media/add-user', validateSystem, async (req, res) => {
-            const userToken = req.body.userToken
-            if (adminUserTokens.indexOf(userToken) < 0) {
-                adminUserTokens.push(userToken)
+            const userId = req.body.userId
+            if (adminUserIds.indexOf(userId) < 0) {
+                adminUserIds.push(userId)
             }
             res.sendStatus(200)
         })
 
         app.post('/media/remove-user', validateSystem, async (req, res) => {
-            const userToken = req.body.userToken
-            const index = adminUserTokens.indexOf(userToken)
+            const userId = req.body.userId
+            const index = adminUserIds.indexOf(userId)
             if (index >= 0) {
-                adminUserTokens.splice(index, 1)
+                adminUserIds.splice(index, 1)
             }
             res.sendStatus(200)
         })
@@ -88,8 +88,8 @@ export class MediaService {
                     const playListId: string = req.body.playListId
                     const file: fileupload.UploadedFile = req.files.file as fileupload.UploadedFile
                     const fileName = file.name
-                    const savePath = './uploads/' + id + '_' + fileName
-                    const fullSavePath = process.cwd() + '/uploads/' + id + '_' + fileName
+                    const savePath = '.media/uploads/' + id + '_' + fileName
+                    const fullSavePath = process.cwd() + '/media/uploads/' + id + '_' + fileName
                     await file.mv(fullSavePath)
 
                     const duration = await getVideoDurationInSeconds(
@@ -204,7 +204,7 @@ export class MediaService {
         }
         // Substring `bearer `, length is 7
         const bearerToken = bearerHeader.substring(7)
-        if (this.adminUserTokens.indexOf(bearerToken) < 0) {
+        if (this.adminUserIds.indexOf(bearerToken) < 0) {
             res.sendStatus(400)
             return
         }
@@ -228,7 +228,7 @@ export class MediaService {
         const prisma = this.prisma;
         const playLists = this.playLists;
         const playListSubscribers = this.playListSubscribers;
-        const adminUserTokens = this.adminUserTokens;
+        const adminUserIds = this.adminUserIds;
         const sendResp = this.sendResp;
 
         room.onMessage('sub', (client, msg) => {
@@ -252,9 +252,9 @@ export class MediaService {
         })
 
         room.onMessage('play', (client, msg) => {
-            logger.info('[media] ' + client.id + ' requested to play ' + msg.playListId + ' by user: ' + msg.userToken)
-            const userToken = msg.userToken
-            if (adminUserTokens.indexOf(userToken) < 0) {
+            logger.info('[media] ' + client.id + ' requested to play ' + msg.playListId + ' by user: ' + msg.userId)
+            const userId = msg.userId
+            if (adminUserIds.indexOf(userId) < 0) {
                 return
             }
             const playListId = msg.playListId
@@ -275,9 +275,9 @@ export class MediaService {
         })
 
         room.onMessage('pause', (client, msg) => {
-            logger.info('[media] ' + client.id + ' requested to pause ' + msg.playListId + ' by user: ' + msg.userToken)
-            const userToken = msg.userToken
-            if (adminUserTokens.indexOf(userToken) < 0) {
+            logger.info('[media] ' + client.id + ' requested to pause ' + msg.playListId + ' by user: ' + msg.userId)
+            const userId = msg.userId
+            if (adminUserIds.indexOf(userId) < 0) {
                 return
             }
             const playListId = msg.playListId
@@ -298,9 +298,9 @@ export class MediaService {
         })
 
         room.onMessage('stop', (client, msg) => {
-            logger.info('[media] ' + client.id + ' requested to stop ' + msg.playListId + ' by user: ' + msg.userToken)
-            const userToken = msg.userToken
-            if (adminUserTokens.indexOf(userToken) < 0) {
+            logger.info('[media] ' + client.id + ' requested to stop ' + msg.playListId + ' by user: ' + msg.userId)
+            const userId = msg.userId
+            if (adminUserIds.indexOf(userId) < 0) {
                 return
             }
             const playListId = msg.playListId
@@ -322,9 +322,9 @@ export class MediaService {
         })
 
         room.onMessage('seek', (client, msg) => {
-            logger.info('[media] ' + client.id + ' requested to seek ' + msg.playListId + ' by user: ' + msg.userToken)
-            const userToken = msg.userToken
-            if (adminUserTokens.indexOf(userToken) < 0) {
+            logger.info('[media] ' + client.id + ' requested to seek ' + msg.playListId + ' by user: ' + msg.userId)
+            const userId = msg.userId
+            if (adminUserIds.indexOf(userId) < 0) {
                 return
             }
             const playListId = msg.playListId
@@ -345,9 +345,9 @@ export class MediaService {
         })
 
         room.onMessage('volume', (client, msg) => {
-            logger.info('[media] ' + client.id + ' requested to volume ' + msg.playListId + ' by user: ' + msg.userToken)
-            const userToken = msg.userToken
-            if (adminUserTokens.indexOf(userToken) < 0) {
+            logger.info('[media] ' + client.id + ' requested to volume ' + msg.playListId + ' by user: ' + msg.userId)
+            const userId = msg.userId
+            if (adminUserIds.indexOf(userId) < 0) {
                 return
             }
             const playListId = msg.playListId
@@ -368,9 +368,9 @@ export class MediaService {
         })
 
         room.onMessage('switch', async (client, msg) => {
-            logger.info('[media] ' + client.id + ' requested to switch ' + msg.playListId + ' by user: ' + msg.userToken)
-            const userToken = msg.userToken
-            if (adminUserTokens.indexOf(userToken) < 0) {
+            logger.info('[media] ' + client.id + ' requested to switch ' + msg.playListId + ' by user: ' + msg.userId)
+            const userId = msg.userId
+            if (adminUserIds.indexOf(userId) < 0) {
                 return
             }
             const playListId = msg.playListId
