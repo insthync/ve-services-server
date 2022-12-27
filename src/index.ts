@@ -16,6 +16,10 @@ import 'dotenv/config'
 import { ChatService } from "./services/ChatService";
 import { ListingService } from "./services/ListingService";
 import { MediaService } from "./services/MediaService";
+import { BroadcastRoom } from "./rooms/BroadcastRoom";
+import { ChatRoom } from "./rooms/ChatRoom";
+import { ListingRoom } from "./rooms/ListingRoom";
+import { MediaRoom } from "./rooms/MediaRoom";
 
 const logger: winston.Logger = winston.createLogger({
     level: 'info',
@@ -122,6 +126,10 @@ function setup(app: express.Express, server: http.Server): Server {
     /**
      * Define your room handlers:
      */
+    gameServer.define("broadcastRoom", BroadcastRoom);
+    gameServer.define("chatRoom", ChatRoom);
+    gameServer.define("listingRoom", ListingRoom);
+    gameServer.define("mediaRoom", MediaRoom);
 
     /**
      * Bind your custom express routes here:
@@ -155,7 +163,7 @@ const app = express();
 app.use(bodyParser.json());
 //support parsing of application/x-www-form-urlencoded post data
 app.use(bodyParser.urlencoded({ extended: true }));
-app.use(morgan('combined', { stream: logger }));
+app.use(morgan('combined'));
 app.use(cors());
 app.use(function(req, res, next) {
     res.setHeader('Vary', 'Origin')
