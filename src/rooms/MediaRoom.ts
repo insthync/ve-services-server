@@ -14,6 +14,7 @@ export class MediaRoom extends Room<MediaRoomState> {
         this.mediaService.onCreateRoom(this);
         this.setState(new MediaRoomState());
         this.autoDispose = false;
+        this.maxClients = Number(process.env.MAX_CLIENTS || 500);
         this.logger.info(`[media] ${this.roomId} "created`);
     }
 

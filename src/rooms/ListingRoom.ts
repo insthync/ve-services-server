@@ -15,6 +15,7 @@ export class ListingRoom extends Room<ListingRoomState> {
     this.listingService.onCreateRoom(this);
     this.setState(new ListingRoomState());
     this.autoDispose = false;
+    this.maxClients = Number(process.env.MAX_CLIENTS || 500);
     this.logger.info(`[listing] ${this.roomId} "created`);
   }
 

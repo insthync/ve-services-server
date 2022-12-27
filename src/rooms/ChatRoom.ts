@@ -15,6 +15,7 @@ export class ChatRoom extends Room<ChatRoomState> {
     this.chatService.onCreateRoom(this);
     this.setState(new ChatRoomState());
     this.autoDispose = false;
+    this.maxClients = Number(process.env.MAX_CLIENTS || 500);
     this.logger.info(`[chat] ${this.roomId} "created`);
   }
 

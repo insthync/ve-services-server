@@ -11,6 +11,7 @@ export class BroadcastRoom extends Room<BroadcastRoomState> {
     this.logger = getLogger();
     this.setState(new BroadcastRoomState());
     this.autoDispose = false;
+    this.maxClients = Number(process.env.MAX_CLIENTS || 500);
     this.onMessage("all", (client, message) => this.onAll(this, client, message));
     this.onMessage("other", (client, message) => this.onOther(this, client, message));
     this.logger.info(`[chat] ${this.roomId} "created`);
