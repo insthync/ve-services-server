@@ -124,14 +124,6 @@ function setup(app: express.Express, server: http.Server): Server {
     });
 
     /**
-     * Define your room handlers:
-     */
-    gameServer.define("broadcastRoom", BroadcastRoom);
-    gameServer.define("chatRoom", ChatRoom);
-    gameServer.define("listingRoom", ListingRoom);
-    gameServer.define("mediaRoom", MediaRoom);
-
-    /**
      * Bind your custom express routes here:
      */
     app.get("/", (req, res) => {
@@ -153,6 +145,14 @@ function setup(app: express.Express, server: http.Server): Server {
      * Read more: https://docs.colyseus.io/tools/monitor/
      */
     app.use("/colyseus", monitor());
+
+    /**
+     * Define your room handlers:
+     */
+    gameServer.define("broadcastRoom", BroadcastRoom);
+    gameServer.define("chatRoom", ChatRoom);
+    gameServer.define("listingRoom", ListingRoom);
+    gameServer.define("mediaRoom", MediaRoom);
 
     return gameServer;
 }
