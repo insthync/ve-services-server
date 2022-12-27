@@ -14,6 +14,7 @@ export class ChatRoom extends Room<ChatRoomState> {
     this.chatService = getChatService();
     this.chatService.onCreateRoom(this);
     this.setState(new ChatRoomState());
+    this.autoDispose = false;
     this.logger.info(`[chat] ${this.roomId} "created`);
   }
 
