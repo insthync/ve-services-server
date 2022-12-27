@@ -4,7 +4,7 @@ import { getLogger, getMediaService } from "..";
 import { MediaService } from "../services/MediaService";
 import { MediaRoomState } from "./schema/MediaRoomState";
 
-export class MediaRoom extends Room<MediaRoomState> {
+export class MediaRoom extends Room {
     private logger: winston.Logger;
     private mediaService: MediaService;
 
@@ -12,7 +12,6 @@ export class MediaRoom extends Room<MediaRoomState> {
         this.logger = getLogger();
         this.mediaService = getMediaService();
         this.mediaService.onCreateRoom(this);
-        this.setState(new MediaRoomState());
         this.autoDispose = false;
         this.maxClients = Number(process.env.MAX_CLIENTS || 500);
         this.logger.info(`[media] ${this.roomId} "created`);

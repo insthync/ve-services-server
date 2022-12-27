@@ -5,7 +5,7 @@ import { getLogger, getChatService } from "..";
 import { ChatService } from "../services/ChatService";
 import { ChatRoomState } from "./schema/ChatRoomState";
 
-export class ChatRoom extends Room<ChatRoomState> {
+export class ChatRoom extends Room {
   private logger: winston.Logger;
   private chatService: ChatService;
 
@@ -13,7 +13,6 @@ export class ChatRoom extends Room<ChatRoomState> {
     this.logger = getLogger();
     this.chatService = getChatService();
     this.chatService.onCreateRoom(this);
-    this.setState(new ChatRoomState());
     this.autoDispose = false;
     this.maxClients = Number(process.env.MAX_CLIENTS || 500);
     this.logger.info(`[chat] ${this.roomId} "created`);

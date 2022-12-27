@@ -4,17 +4,16 @@ import winston from "winston";
 import { getLogger } from "..";
 import { BroadcastRoomState } from "./schema/BroadcastRoomState";
 
-export class BroadcastRoom extends Room<BroadcastRoomState> {
+export class BroadcastRoom extends Room {
   private logger: winston.Logger;
 
   onCreate(options: any) {
     this.logger = getLogger();
-    this.setState(new BroadcastRoomState());
     this.autoDispose = false;
     this.maxClients = Number(process.env.MAX_CLIENTS || 500);
     this.onMessage("all", (client, message) => this.onAll(this, client, message));
     this.onMessage("other", (client, message) => this.onOther(this, client, message));
-    this.logger.info(`[chat] ${this.roomId} "created`);
+    this.logger.info(`[broadcast] ${this.roomId} "created`);
   }
 
   onAll(self: BroadcastRoom, client: Client, message: any) {
@@ -28,8 +27,10 @@ export class BroadcastRoom extends Room<BroadcastRoomState> {
   onAuth(client: Client, options: any, request: http.IncomingMessage) {
     const secretKeys = JSON.parse(process.env.SECRET_KEYS || "[]")
     if (secretKeys.indexOf(options.secret) < 0) {
+      this.logger.error(`[broadcast] ${client.sessionId} joining failed, wrong secret!`)
       throw new ServerError(400, "Unauthorized");
     }
+    return options;
   }
 
   onJoin(client: Client, options: any) {
