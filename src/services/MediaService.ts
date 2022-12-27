@@ -228,6 +228,7 @@ export class MediaService {
         const prisma = this.prisma;
         const playLists = this.playLists;
         const playListSubscribers = this.playListSubscribers;
+        const deletingMediaIds = this.deletingMediaIds;
         const adminUserIds = this.adminUserIds;
         const sendResp = this.sendResp;
 
@@ -406,14 +407,17 @@ export class MediaService {
             logger.info('[media] ' + client.id + ' switch ' + playListId)
         })
 
-        room.setSimulationInterval(this.update);
+        const update = this.update;
+        room.setSimulationInterval((deltaTime: number) => update(deltaTime, prisma, playLists, playListSubscribers, deletingMediaIds), 1000);
     }
 
-    async update(deltaTime: number) {
-        const prisma = this.prisma;
-        const playLists = this.playLists;
-        const playListSubscribers = this.playListSubscribers;
-        const deletingMediaIds = this.deletingMediaIds;
+    async update(
+        deltaTime: number,
+        prisma: PrismaClient,
+        playLists: { [id: string]: IMediaData },
+        playListSubscribers: { [id: string]: Client[] },
+        deletingMediaIds: string[])
+    {
         const deletingPlayLists: string[] = []
         for (const playListId in playLists) {
             if (!Object.hasOwnProperty.call(playLists, playListId)) {
