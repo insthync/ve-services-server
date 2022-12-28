@@ -31,7 +31,6 @@ export class ChatService {
         const validateSystem = this.validateSystem;
 
         app.post("/chat/add-user", validateSystem, async (req, res, next) => {
-            // Token is correct, then create user connection data
             const connectingUser = {
                 userId: req.body.userId,
                 name: req.body.name,
