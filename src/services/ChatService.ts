@@ -30,7 +30,7 @@ export class ChatService {
         const connectingUsers = this.connectingUsers;
         const validateSystem = this.validateSystem;
 
-        app.post('/chat/add-user', validateSystem, async (req, res, next) => {
+        app.post("/chat/add-user", validateSystem, async (req, res, next) => {
             // Token is correct, then create user connection data
             const connectingUser = {
                 userId: req.body.userId,
@@ -66,7 +66,7 @@ export class ChatService {
             res.status(200).send(connectingUser)
         })
 
-        app.post('/chat/remove-user', validateSystem, async (req, res, next) => {
+        app.post("/chat/remove-user", validateSystem, async (req, res, next) => {
             delete connectingUsers[req.body.userId]
             res.status(200).send()
         })
@@ -258,10 +258,8 @@ export class ChatService {
     }
 
     public onCreateRoom(room: ChatRoom) {
-        const logger = this.logger;
         const profanity = this.profanity;
         const prisma = this.prisma
-        const connectingUsers = this.connectingUsers;
         const connections = this.connections;
         const connectionsByName = this.connectionsByName;
         const connectionsByGroupId = this.connectionsByGroupId;
@@ -270,58 +268,6 @@ export class ChatService {
         const NotifyGroupInvitation = this.NotifyGroupInvitation;
         const NotifyGroupUser = this.NotifyGroupUser;
         const GroupLeave = this.GroupLeave;
-
-        room.onMessage("validate-user", async (client, data) => {
-            const userId = data.userId
-            logger.info("[chat] Connecting by [" + client.id + "] user ID [" + userId + "]")
-            if (!userId) {
-                client.leave()
-                logger.info("[chat] Not allow [" + client.id + "] to connect because it has invalid user ID")
-                return
-            }
-            // If the client is not allowed, disconnect
-            if (!Object.prototype.hasOwnProperty.call(connectingUsers, userId)) {
-                client.leave()
-                logger.info("[chat] Not allow [" + client.id + "] to connect because it has invalid user ID")
-                return
-            }
-
-            // Validate connection key
-            const connectingUser = connectingUsers[userId]
-            const connectionKey = data.connectionKey
-            if (connectionKey != connectingUser.connectionKey) {
-                client.leave()
-                logger.info("[chat] Not allow [" + client.id + "] to connect because it has invalid connection key")
-                return
-            }
-
-            // Disconnect older socket
-            if (Object.prototype.hasOwnProperty.call(connections, userId)) {
-                connections[userId].leave()
-                logger.info("[chat] Disconnect [" + connections[userId].id + "] because it is going to connect by newer client with the same user ID")
-            }
-
-            // Set user data after connected
-            client.userData = connectingUser
-
-            // Set socket client to the collections
-            connections[userId] = client
-            connectionsByName[connectingUser.name] = client
-
-            // Find and store user groups
-            const userGroups = await prisma.userGroup.findMany({
-                where: {
-                    userId: userId
-                }
-            })
-            userGroups.forEach(userGroup => {
-                if (!Object.prototype.hasOwnProperty.call(connectionsByGroupId, userGroup.groupId)) {
-                    connectionsByGroupId[userGroup.groupId] = {}
-                }
-                connectionsByGroupId[userGroup.groupId][userId] = client
-            })
-            await NotifyGroup(userId)
-        })
 
         room.onMessage("local", (client, data) => {
             const userId = client.userData.userId
@@ -657,6 +603,66 @@ export class ChatService {
         room.onMessage("kick-user", (client, data) => {
             GroupLeave(data.groupId, data.userId)
         })
+    }
+
+    public async onAuth(client: Client, options: any) {
+        const logger = this.logger;
+        const prisma = this.prisma
+        const connectingUsers = this.connectingUsers;
+        const connections = this.connections;
+        const connectionsByName = this.connectionsByName;
+        const connectionsByGroupId = this.connectionsByGroupId;
+        const NotifyGroup = this.NotifyGroup;
+
+        const userId = options.userId
+        logger.info(`[chat] Connecting by [${client.id}] user ID [${userId}]`)
+        if (!userId) {
+            client.leave()
+            logger.info(`[chat] Not allow [${client.id}] to connect because it has invalid user ID`)
+            return
+        }
+        // If the client is not allowed, disconnect
+        if (!Object.prototype.hasOwnProperty.call(connectingUsers, userId)) {
+            client.leave()
+            logger.info(`[chat] Not allow [${client.id}] to connect because it has invalid user ID`)
+            return
+        }
+
+        // Validate connection key
+        const connectingUser = connectingUsers[userId]
+        const connectionKey = options.connectionKey
+        if (connectionKey != connectingUser.connectionKey) {
+            client.leave()
+            logger.info(`[chat] Not allow [${client.id}] to connect because it has invalid connection key`)
+            return
+        }
+
+        // Disconnect older socket
+        if (Object.prototype.hasOwnProperty.call(connections, userId)) {
+            connections[userId].leave()
+            logger.info(`[chat] Disconnect [${connections[userId].id}] because it is going to connect by newer client with the same user ID`)
+        }
+
+        // Set user data after connected
+        client.userData = connectingUser
+
+        // Set socket client to the collections
+        connections[userId] = client
+        connectionsByName[connectingUser.name] = client
+
+        // Find and store user groups
+        const userGroups = await prisma.userGroup.findMany({
+            where: {
+                userId: userId
+            }
+        })
+        userGroups.forEach(userGroup => {
+            if (!Object.prototype.hasOwnProperty.call(connectionsByGroupId, userGroup.groupId)) {
+                connectionsByGroupId[userGroup.groupId] = {}
+            }
+            connectionsByGroupId[userGroup.groupId][userId] = client
+        })
+        await NotifyGroup(userId)
     }
 }
 

@@ -17,6 +17,14 @@ export class ChatRoom extends Room {
     this.logger.info(`[chat] ${this.roomId} "created`);
   }
 
+  onAuth(client: Client, options: any, request: http.IncomingMessage) {
+    if (this.chatService.onAuth(client, options)) {
+      this.logger.error(`[chat] ${client.sessionId} joining failed!`)
+      throw new ServerError(400, "Unauthorized");
+    }
+    return options;
+  }
+
   onJoin(client: Client, options: any) {
     this.logger.info(`[chat] ${client.sessionId} joined!`);
   }
