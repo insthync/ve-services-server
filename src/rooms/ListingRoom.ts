@@ -3,7 +3,6 @@ import http from "http";
 import winston from "winston";
 import { getLogger, getListingService } from "..";
 import { ListingService } from "../services/ListingService";
-import { ListingRoomState } from "./schema/ListingRoomState";
 
 export class ListingRoom extends Room {
   private logger: winston.Logger;

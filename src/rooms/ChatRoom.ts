@@ -3,7 +3,6 @@ import http from "http";
 import winston from "winston";
 import { getLogger, getChatService } from "..";
 import { ChatService } from "../services/ChatService";
-import { ChatRoomState } from "./schema/ChatRoomState";
 
 export class ChatRoom extends Room {
   private logger: winston.Logger;

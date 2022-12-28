@@ -2,7 +2,6 @@ import { Room, Client, ServerError } from "colyseus";
 import http from "http";
 import winston from "winston";
 import { getLogger } from "..";
-import { BroadcastRoomState } from "./schema/BroadcastRoomState";
 
 export class BroadcastRoom extends Room {
   private logger: winston.Logger;

@@ -2,7 +2,6 @@ import { Room, Client } from "colyseus";
 import winston from "winston";
 import { getLogger, getMediaService } from "..";
 import { MediaService } from "../services/MediaService";
-import { MediaRoomState } from "./schema/MediaRoomState";
 
 export class MediaRoom extends Room {
     private logger: winston.Logger;
