@@ -31,10 +31,12 @@ export class ChatService {
         const validateSystem = this.validateSystem;
 
         app.post("/chat/add-user", validateSystem, async (req, res, next) => {
+            const connectionKey = nanoid();
             const connectingUser = {
                 userId: req.body.userId,
                 name: req.body.name,
-                connectionKey: nanoid(6),
+                connectionKey: connectionKey,
+                token: req.body.userId + "|" + connectionKey,
             } as IClientData
             connectingUsers[connectingUser.userId] = connectingUser
             const user = await prisma.user.findUnique({
@@ -613,23 +615,29 @@ export class ChatService {
         const connectionsByGroupId = this.connectionsByGroupId;
         const NotifyGroup = this.NotifyGroup;
 
-        const userId = options.userId
-        logger.info(`[chat] Connecting by [${client.id}] user ID [${userId}]`)
+        const token = options.token
+        const splitingData = token.split("|")
+        if (splitingData.length < 2) {
+            client.leave()
+            logger.info(`[chat] Not allow [${client.id}] to connect because the token is invalid`)
+            return
+        }
+
+        const userId = splitingData[0]
+        const connectionKey = splitingData[1]
         if (!userId) {
             client.leave()
             logger.info(`[chat] Not allow [${client.id}] to connect because it has invalid user ID`)
             return
         }
-        // If the client is not allowed, disconnect
+        
         if (!Object.prototype.hasOwnProperty.call(connectingUsers, userId)) {
             client.leave()
             logger.info(`[chat] Not allow [${client.id}] to connect because it has invalid user ID`)
             return
         }
 
-        // Validate connection key
         const connectingUser = connectingUsers[userId]
-        const connectionKey = options.connectionKey
         if (connectionKey != connectingUser.connectionKey) {
             client.leave()
             logger.info(`[chat] Not allow [${client.id}] to connect because it has invalid connection key`)
@@ -669,6 +677,7 @@ interface IClientData {
     userId: string;
     name: string;
     connectionKey: string;
+    token: string;
 }
 
 interface IGroupLeaveResp {
