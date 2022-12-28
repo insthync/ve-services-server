@@ -14,7 +14,8 @@ export class MediaService {
     private playLists: { [id: string]: IMediaData } = {}
     private playListSubscribers: { [id: string]: Client[] } = {}
     private deletingMediaIds: string[] = []
-    private adminUserIds: string[] = []
+    private connectingUsers: { [id: string]: IClientData } = {}
+    private connections: { [id: string]: Client } = {}
 
     constructor(app: express.Express, logger: winston.Logger) {
         this.app = app;
@@ -53,7 +54,7 @@ export class MediaService {
         const playLists = this.playLists;
         const playListSubscribers = this.playListSubscribers;
         const deletingMediaIds = this.deletingMediaIds;
-        const adminUserIds = this.adminUserIds;
+        const connectingUsers = this.connectingUsers;
         const validateSystem = this.validateSystem;
         const validateUser = this.validateUser;
 
@@ -61,20 +62,20 @@ export class MediaService {
         app.use('/media/uploads', express.static('uploads'));
 
         app.post('/media/add-user', validateSystem, async (req, res) => {
-            const userId = req.body.userId
-            if (adminUserIds.indexOf(userId) < 0) {
-                adminUserIds.push(userId)
-            }
-            res.sendStatus(200)
+            const connectionKey = nanoid();
+            const connectingUser = {
+                userId: req.body.userId,
+                connectionKey: connectionKey,
+                token: req.body.userId + "|" + connectionKey,
+            } as IClientData
+            connectingUsers[req.body.userId] = connectingUser
+            // Send response back
+            res.status(200).send(connectingUser)
         })
 
         app.post('/media/remove-user', validateSystem, async (req, res) => {
-            const userId = req.body.userId
-            const index = adminUserIds.indexOf(userId)
-            if (index >= 0) {
-                adminUserIds.splice(index, 1)
-            }
-            res.sendStatus(200)
+            delete connectingUsers[req.body.userId]
+            res.status(200).send()
         })
 
         app.post('/media/upload', validateUser, async (req: express.Request, res: express.Response) => {
@@ -202,9 +203,29 @@ export class MediaService {
             res.sendStatus(400)
             return
         }
+        
         // Substring `bearer `, length is 7
-        const bearerToken = bearerHeader.substring(7)
-        if (this.adminUserIds.indexOf(bearerToken) < 0) {
+        const token = bearerHeader.substring(7)
+        const splitingData = token.split("|")
+        if (splitingData.length < 2) {
+            res.sendStatus(400)
+            return
+        }
+
+        const userId = splitingData[0]
+        const connectionKey = splitingData[1]
+        if (!userId) {
+            res.sendStatus(400)
+            return
+        }
+
+        if (!Object.prototype.hasOwnProperty.call(this.connectingUsers, userId)) {
+            res.sendStatus(400)
+            return
+        }
+
+        const connectingUser = this.connectingUsers[userId]
+        if (connectionKey != connectingUser.connectionKey) {
             res.sendStatus(400)
             return
         }
@@ -229,19 +250,18 @@ export class MediaService {
         const playLists = this.playLists;
         const playListSubscribers = this.playListSubscribers;
         const deletingMediaIds = this.deletingMediaIds;
-        const adminUserIds = this.adminUserIds;
+        const adminUserIds = this.connectingUsers;
         const sendResp = this.sendResp;
 
-        room.onMessage('sub', (client, msg) => {
-            logger.info('[media] ' + client.id + ' requested to sub ' + msg.playListId)
-            const playListId = msg.playListId
+        room.onMessage("sub", (client, playListId) => {
+            logger.info(`[media] ${client.id} requested to sub ${playListId}`)
             if (!Object.hasOwnProperty.call(playListSubscribers, playListId)) {
                 playListSubscribers[playListId] = []
             }
             const currentPlayListSubscribers = playListSubscribers[playListId]
             if (currentPlayListSubscribers.indexOf(client) < 0) {
                 currentPlayListSubscribers.push(client)
-                logger.info('[media] ' + client.id + ' sub ' + playListId)
+                logger.info(`[media] ${client.id} sub ${playListId}`)
             }
             // Find the playlist, if found then `resp`
             if (!Object.hasOwnProperty.call(playLists, playListId)) {
@@ -252,13 +272,12 @@ export class MediaService {
             sendResp(client, playListId, currentPlayList)
         })
 
-        room.onMessage('play', (client, msg) => {
-            logger.info('[media] ' + client.id + ' requested to play ' + msg.playListId + ' by user: ' + msg.userId)
-            const userId = msg.userId
-            if (adminUserIds.indexOf(userId) < 0) {
+        room.onMessage("play", (client, playListId) => {
+            const userId = client.userData.userId
+            if (!userId) {
                 return
             }
-            const playListId = msg.playListId
+            logger.info(`[media] ${client.id} requested to play ${playListId} by user: ${userId}`)
             if (!Object.hasOwnProperty.call(playLists, playListId)) {
                 return
             }
@@ -272,16 +291,15 @@ export class MediaService {
             currentPlayListSubscribers.forEach(element => {
                 sendResp(element, playListId, currentPlayList)
             })
-            logger.info('[media] ' + client.id + ' play ' + playListId)
+            logger.info(`[media] ${client.id} play ${playListId}`)
         })
 
-        room.onMessage('pause', (client, msg) => {
-            logger.info('[media] ' + client.id + ' requested to pause ' + msg.playListId + ' by user: ' + msg.userId)
-            const userId = msg.userId
-            if (adminUserIds.indexOf(userId) < 0) {
+        room.onMessage("pause", (client, playListId) => {
+            const userId = client.userData.userId
+            if (!userId) {
                 return
             }
-            const playListId = msg.playListId
+            logger.info(`[media] ${client.id} requested to pause ${playListId} by user: ${userId}`)
             if (!Object.hasOwnProperty.call(playLists, playListId)) {
                 return
             }
@@ -295,16 +313,15 @@ export class MediaService {
             currentPlayListSubscribers.forEach(element => {
                 sendResp(element, playListId, currentPlayList)
             })
-            logger.info('[media] ' + client.id + ' pause ' + playListId)
+            logger.info(`[media] ${client.id} pause ${playListId}`)
         })
 
-        room.onMessage('stop', (client, msg) => {
-            logger.info('[media] ' + client.id + ' requested to stop ' + msg.playListId + ' by user: ' + msg.userId)
-            const userId = msg.userId
-            if (adminUserIds.indexOf(userId) < 0) {
+        room.onMessage("stop", (client, playListId) => {
+            const userId = client.userData.userId
+            if (!userId) {
                 return
             }
-            const playListId = msg.playListId
+            logger.info(`[media] ${client.id} requested to stop ${playListId} by user: ${userId}`)
             if (!Object.hasOwnProperty.call(playLists, playListId)) {
                 return
             }
@@ -319,16 +336,16 @@ export class MediaService {
             currentPlayListSubscribers.forEach(element => {
                 sendResp(element, playListId, currentPlayList)
             })
-            logger.info('[media] ' + client.id + ' stop ' + playListId)
+            logger.info(`[media] ${client.id} stop ${playListId}`)
         })
 
-        room.onMessage('seek', (client, msg) => {
-            logger.info('[media] ' + client.id + ' requested to seek ' + msg.playListId + ' by user: ' + msg.userId)
-            const userId = msg.userId
-            if (adminUserIds.indexOf(userId) < 0) {
+        room.onMessage("seek", (client, msg) => {
+            const userId = client.userData.userId
+            if (!userId) {
                 return
             }
             const playListId = msg.playListId
+            logger.info(`[media] ${client.id} requested to seek ${playListId} by user: ${userId}`)
             if (!Object.hasOwnProperty.call(playLists, playListId)) {
                 return
             }
@@ -342,16 +359,16 @@ export class MediaService {
             currentPlayListSubscribers.forEach(element => {
                 sendResp(element, playListId, currentPlayList)
             })
-            logger.info('[media] ' + client.id + ' seek ' + playListId)
+            logger.info(`[media] ${client.id} seek ${playListId}`)
         })
 
-        room.onMessage('volume', (client, msg) => {
-            logger.info('[media] ' + client.id + ' requested to volume ' + msg.playListId + ' by user: ' + msg.userId)
-            const userId = msg.userId
-            if (adminUserIds.indexOf(userId) < 0) {
+        room.onMessage("volume", (client, msg) => {
+            const userId = client.userData.userId
+            if (!userId) {
                 return
             }
             const playListId = msg.playListId
+            logger.info(`[media] ${client.id} requested to volume ${playListId} by user: ${userId}`)
             if (!Object.hasOwnProperty.call(playLists, playListId)) {
                 return
             }
@@ -365,16 +382,16 @@ export class MediaService {
             currentPlayListSubscribers.forEach(element => {
                 sendResp(element, playListId, currentPlayList)
             })
-            logger.info('[media] ' + client.id + ' volume ' + playListId)
+            logger.info(`[media] ${client.id} volume ${playListId}`)
         })
 
-        room.onMessage('switch', async (client, msg) => {
-            logger.info('[media] ' + client.id + ' requested to switch ' + msg.playListId + ' by user: ' + msg.userId)
-            const userId = msg.userId
-            if (adminUserIds.indexOf(userId) < 0) {
+        room.onMessage("switch", async (client, msg) => {
+            const userId = client.userData.userId
+            if (!userId) {
                 return
             }
             const playListId = msg.playListId
+            logger.info(`[media] ${client.id} requested to switch ${playListId} by user: ${userId}`)
             if (!Object.hasOwnProperty.call(playLists, playListId)) {
                 return
             }
@@ -404,7 +421,7 @@ export class MediaService {
             currentPlayListSubscribers.forEach(element => {
                 sendResp(element, playListId, currentPlayList)
             })
-            logger.info('[media] ' + client.id + ' switch ' + playListId)
+            logger.info(`[media] ${client.id} switch ${playListId}`)
         })
 
         const update = this.update;
@@ -509,6 +526,53 @@ export class MediaService {
         }
     }
 
+    public async onAuth(client: Client, options: any) {
+        const logger = this.logger;
+        const connectingUsers = this.connectingUsers;
+        const connections = this.connections;
+
+        const token = options.token
+        const splitingData = token.split("|")
+        if (splitingData.length < 2) {
+            client.leave()
+            logger.info(`[chat] Not allow [${client.id}] to connect because the token is invalid`)
+            return
+        }
+
+        const userId = splitingData[0]
+        const connectionKey = splitingData[1]
+        if (!userId) {
+            client.leave()
+            logger.info(`[chat] Not allow [${client.id}] to connect because it has invalid user ID`)
+            return
+        }
+        
+        if (!Object.prototype.hasOwnProperty.call(connectingUsers, userId)) {
+            client.leave()
+            logger.info(`[chat] Not allow [${client.id}] to connect because it has invalid user ID`)
+            return
+        }
+
+        const connectingUser = connectingUsers[userId]
+        if (connectionKey != connectingUser.connectionKey) {
+            client.leave()
+            logger.info(`[chat] Not allow [${client.id}] to connect because it has invalid connection key`)
+            return
+        }
+
+        // Disconnect older socket
+        if (Object.prototype.hasOwnProperty.call(connections, userId)) {
+            connections[userId].leave()
+            logger.info(`[chat] Disconnect [${connections[userId].id}] because it is going to connect by newer client with the same user ID`)
+        }
+
+        // Set user data after connected
+        client.userData = connectingUser
+
+        // Set socket client to the collections
+        connections[userId] = client
+    }
+
     public onDisconnect(client: Client) {
         const playListSubscribers = this.playListSubscribers;
         for (const key in playListSubscribers) {
@@ -522,6 +586,12 @@ export class MediaService {
             }
         }
     }
+}
+
+interface IClientData {
+    userId: string;
+    connectionKey: string;
+    token: string;
 }
 
 interface IMediaData {

@@ -1,4 +1,5 @@
-import { Room, Client } from "colyseus";
+import { Room, Client, ServerError } from "colyseus";
+import http from "http";
 import winston from "winston";
 import { getLogger, getMediaService } from "..";
 import { MediaService } from "../services/MediaService";
@@ -14,6 +15,14 @@ export class MediaRoom extends Room {
         this.autoDispose = false;
         this.maxClients = Number(process.env.MAX_CLIENTS || 500);
         this.logger.info(`[media] ${this.roomId} "created`);
+    }
+
+    onAuth(client: Client, options: any, request: http.IncomingMessage) {
+      if (this.mediaService.onAuth(client, options)) {
+        this.logger.error(`[media] ${client.sessionId} joining failed!`)
+        throw new ServerError(400, "Unauthorized");
+      }
+      return options;
     }
 
     onJoin(client: Client, options: any) {
