@@ -15,50 +15,49 @@ export class ListingService {
     }
 
     setupRoutes() {
-        const app = this.app;
-        const gameServers = this.gameServers;
+        this.app.get('/listing', this.onListing);
+        this.app.get('/listing/total-player', this.onTotalPlayer);
+    }
 
-        app.get('/listing', (req, res) => {
-            const result = [];
-            for (const key in gameServers) {
-                if (Object.hasOwnProperty.call(gameServers, key)) {
-                    result.push(gameServers[key]);
-                }
+    onListing(req: express.Request, res: express.Response) {
+        const result = [];
+        for (const key in this.gameServers) {
+            if (Object.hasOwnProperty.call(this.gameServers, key)) {
+                result.push(this.gameServers[key]);
             }
-            res.status(200).send({
-                success: true,
-                gameServers: result,
-            });
+        }
+        res.status(200).send({
+            success: true,
+            gameServers: result,
         });
+    }
 
-        app.get('/listing/total-player', (req, res) => {
-            let totalPlayer = 0;
-            for (const key in gameServers) {
-                if (Object.hasOwnProperty.call(gameServers, key)) {
-                    totalPlayer += gameServers[key].currentPlayer;
-                }
+    onTotalPlayer(req: express.Request, res: express.Response) {
+        let totalPlayer = 0;
+        for (const key in this.gameServers) {
+            if (Object.hasOwnProperty.call(this.gameServers, key)) {
+                totalPlayer += this.gameServers[key].currentPlayer;
             }
-            res.status(200).send({
-                success: true,
-                totalPlayer,
-            });
+        }
+        res.status(200).send({
+            success: true,
+            totalPlayer,
         });
     }
 
     public onCreateRoom(room: ListingRoom) {
-        const gameServers = this.gameServers;
+        room.onMessage('update', this.onUpdate);
+    }
 
-        room.onMessage('update', (client: Client, msg: IGameServerData) => {
-            const id = client.id;
-            if (id !== undefined && id in gameServers) {
-                msg.id = id;
-                gameServers[id] = msg;
-            }
-        });
+    onUpdate(client: Client, msg: IGameServerData) {
+        const id = client.id;
+        if (id !== undefined && id in this.gameServers) {
+            msg.id = id;
+            this.gameServers[id] = msg;
+        }
     }
 
     public onConnect(client: Client, options: any) {
-        const logger = this.logger;
         const gameServer: IGameServerData = {
             id: client.id,
             address: options.data.address,
@@ -70,17 +69,16 @@ export class ListingService {
             maxPlayer: options.data.maxPlayer,
         };
         this.gameServers[gameServer.id] = gameServer;
-        logger.info(`[listing] Game-Server: ${client.id} connected.`);
+        this.logger.info(`[listing] Game-Server: ${client.id} connected.`);
     }
 
     public onDisconnect(client: Client) {
-        const logger = this.logger;
         const id = client.id;
         if (id !== undefined && id in this.gameServers) {
             delete this.gameServers[id];
-            logger.info(`[listing] Game-Server: ${id} shutdown.`);
+            this.logger.info(`[listing] Game-Server: ${id} shutdown.`);
         } else {
-            logger.info(`[listing] No connected Game-Server: ${id}, so it can be shutdown.`);
+            this.logger.info(`[listing] No connected Game-Server: ${id}, so it can be shutdown.`);
         }
     }
 }
