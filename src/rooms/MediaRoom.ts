@@ -18,11 +18,8 @@ export class MediaRoom extends Room {
     }
 
     onAuth(client: Client, options: any, request: http.IncomingMessage) {
-      if (this.mediaService.onAuth(client, options)) {
-        this.logger.error(`[media] ${client.sessionId} joining failed!`)
-        throw new ServerError(400, "Unauthorized");
-      }
-      return options;
+        this.mediaService.onAuth(client, options);
+        return options;
     }
 
     onJoin(client: Client, options: any) {

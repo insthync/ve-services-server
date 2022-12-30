@@ -534,36 +534,28 @@ export class MediaService {
         const token = options.token
         const splitingData = token.split("|")
         if (splitingData.length < 2) {
-            client.leave()
-            logger.info(`[chat] Not allow [${client.id}] to connect because the token is invalid`)
             return
         }
 
         const userId = splitingData[0]
         const connectionKey = splitingData[1]
         if (!userId) {
-            client.leave()
-            logger.info(`[chat] Not allow [${client.id}] to connect because it has invalid user ID`)
             return
         }
         
         if (!Object.prototype.hasOwnProperty.call(connectingUsers, userId)) {
-            client.leave()
-            logger.info(`[chat] Not allow [${client.id}] to connect because it has invalid user ID`)
             return
         }
 
         const connectingUser = connectingUsers[userId]
         if (connectionKey != connectingUser.connectionKey) {
-            client.leave()
-            logger.info(`[chat] Not allow [${client.id}] to connect because it has invalid connection key`)
             return
         }
 
         // Disconnect older socket
         if (Object.prototype.hasOwnProperty.call(connections, userId)) {
             connections[userId].leave()
-            logger.info(`[chat] Disconnect [${connections[userId].id}] because it is going to connect by newer client with the same user ID`)
+            logger.info(`[media] Disconnect [${connections[userId].id}] because it is going to connect by newer client with the same user ID`)
         }
 
         // Set user data after connected
