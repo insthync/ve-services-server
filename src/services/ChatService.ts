@@ -294,7 +294,7 @@ export class ChatService {
         if (!userId) {
             return
         }
-        const targetName = data.targetName
+        const targetName = data.name
         if (!Object.prototype.hasOwnProperty.call(this.connectionsByName, targetName)) {
             return
         }
@@ -320,7 +320,7 @@ export class ChatService {
         if (!userId) {
             return
         }
-        const targetUserId = data.targetUserId
+        const targetUserId = data.userId
         if (!Object.prototype.hasOwnProperty.call(this.connections, targetUserId)) {
             return
         }
