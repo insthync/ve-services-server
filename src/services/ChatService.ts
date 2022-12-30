@@ -71,7 +71,7 @@ export class ChatService {
         res.status(200).send()
     }
 
-    validateSystem(req: any, res: any, next: any) {
+    validateSystem(req: express.Request, res: express.Response, next: express.NextFunction) {
         // This must be able to connect by game-server only, don't allow client to connect
         // Validate connection by secret key which will be included in header -> authorization
         const bearerHeader = req.headers['authorization']
