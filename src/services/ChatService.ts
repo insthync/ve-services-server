@@ -25,52 +25,50 @@ export class ChatService {
     }
 
     setupRoutes() {
-        const app = this.app;
-        const prisma = this.prisma;
-        const connectingUsers = this.connectingUsers;
-        const validateSystem = this.validateSystem;
+        this.app.post("/chat/add-user", this.validateSystem, this.onAddUser);
+        this.app.post("/chat/remove-user", this.validateSystem, this.onRemoveUser);
+    }
 
-        app.post("/chat/add-user", validateSystem, async (req, res, next) => {
-            const connectionKey = nanoid();
-            const connectingUser = {
+    async onAddUser(req: express.Request, res: express.Response, next: express.NextFunction) {
+        const connectionKey = nanoid();
+        const connectingUser = {
+            userId: req.body.userId,
+            name: req.body.name,
+            connectionKey: connectionKey,
+            token: req.body.userId + "|" + connectionKey,
+        } as IClientData
+        this.connectingUsers[connectingUser.userId] = connectingUser
+        const user = await this.prisma.user.findUnique({
+            where: {
                 userId: req.body.userId,
-                name: req.body.name,
-                connectionKey: connectionKey,
-                token: req.body.userId + "|" + connectionKey,
-            } as IClientData
-            connectingUsers[connectingUser.userId] = connectingUser
-            const user = await prisma.user.findUnique({
+            }
+        })
+        if (user) {
+            await this.prisma.user.update({
                 where: {
                     userId: req.body.userId,
+                },
+                data: {
+                    name: req.body.name,
+                    iconUrl: req.body.iconUrl,
                 }
             })
-            if (user) {
-                await prisma.user.update({
-                    where: {
-                        userId: req.body.userId,
-                    },
-                    data: {
-                        name: req.body.name,
-                        iconUrl: req.body.iconUrl,
-                    }
-                })
-            } else {
-                await prisma.user.create({
-                    data: {
-                        userId: req.body.userId,
-                        name: req.body.name,
-                        iconUrl: req.body.iconUrl,
-                    }
-                })
-            }
-            // Send response back
-            res.status(200).send(connectingUser)
-        })
+        } else {
+            await this.prisma.user.create({
+                data: {
+                    userId: req.body.userId,
+                    name: req.body.name,
+                    iconUrl: req.body.iconUrl,
+                }
+            })
+        }
+        // Send response back
+        res.status(200).send(connectingUser)
+    }
 
-        app.post("/chat/remove-user", validateSystem, async (req, res, next) => {
-            delete connectingUsers[req.body.userId]
-            res.status(200).send()
-        })
+    async onRemoveUser(req: express.Request, res: express.Response, next: express.NextFunction) {
+        delete this.connectingUsers[req.body.userId]
+        res.status(200).send()
     }
 
     validateSystem(req: any, res: any, next: any) {
@@ -92,10 +90,6 @@ export class ChatService {
     }
 
     async GroupLeave(groupId: string | undefined, userId: string | undefined) {
-        const prisma = this.prisma;
-        const connectionsByGroupId = this.connectionsByGroupId;
-        const NotifyGroup = this.NotifyGroup;
-
         // Validate group
         if (!groupId) {
             return
@@ -105,24 +99,24 @@ export class ChatService {
             return
         }
         // Delete user's group data from database
-        await prisma.userGroup.deleteMany({
+        await this.prisma.userGroup.deleteMany({
             where: {
                 userId: userId,
                 groupId: groupId,
             }
         })
         // Valiate before send group moving message to clients
-        if (!Object.prototype.hasOwnProperty.call(connectionsByGroupId, groupId)) {
+        if (!Object.prototype.hasOwnProperty.call(this.connectionsByGroupId, groupId)) {
             return
         }
-        if (!Object.prototype.hasOwnProperty.call(connectionsByGroupId[groupId], userId)) {
+        if (!Object.prototype.hasOwnProperty.call(this.connectionsByGroupId[groupId], userId)) {
             return
         }
         // Remove user from the group
-        await NotifyGroup(userId)
-        delete connectionsByGroupId[groupId][userId]
+        await this.NotifyGroup(userId)
+        delete this.connectionsByGroupId[groupId][userId]
         // Broadcast leave member
-        const targetClients = connectionsByGroupId[groupId]
+        const targetClients = this.connectionsByGroupId[groupId]
         for (const targetUserId in targetClients) {
             const targetClient = targetClients[targetUserId]
             targetClient.send("group-leave", {
@@ -132,10 +126,7 @@ export class ChatService {
     }
 
     async NotifyGroupInvitation(userId: string) {
-        const prisma = this.prisma;
-        const connections = this.connections;
-
-        const list = await prisma.userGroupInvitation.findMany({
+        const list = await this.prisma.userGroupInvitation.findMany({
             where: {
                 userId: userId,
             }
@@ -144,15 +135,15 @@ export class ChatService {
         list.forEach(element => {
             groupIds.push(element.groupId)
         })
-        const groupList = await prisma.group.findMany({
+        const groupList = await this.prisma.group.findMany({
             where: {
                 groupId: {
                     in: groupIds
                 }
             }
         })
-        if (Object.prototype.hasOwnProperty.call(connections, userId)) {
-            const connection = connections[userId]
+        if (Object.prototype.hasOwnProperty.call(this.connections, userId)) {
+            const connection = this.connections[userId]
             connection.send("group-invitation-list", {
                 list: groupList
             } as IGroupInvitationListResp)
@@ -160,10 +151,7 @@ export class ChatService {
     }
 
     async NotifyGroupUser(userId: string, groupId: string) {
-        const prisma = this.prisma;
-        const connections = this.connections;
-
-        const list = await prisma.userGroup.findMany({
+        const list = await this.prisma.userGroup.findMany({
             where: {
                 groupId: groupId,
             }
@@ -172,7 +160,7 @@ export class ChatService {
         list.forEach(element => {
             userIds.push(element.userId)
         })
-        const userList = await prisma.user.findMany({
+        const userList = await this.prisma.user.findMany({
             where: {
                 userId: {
                     in: userIds
@@ -180,8 +168,8 @@ export class ChatService {
             }
         })
 
-        if (Object.prototype.hasOwnProperty.call(connections, userId)) {
-            const connection = connections[userId]
+        if (Object.prototype.hasOwnProperty.call(this.connections, userId)) {
+            const connection = this.connections[userId]
             connection.send("group-user-list", {
                 groupId: groupId,
                 list: userList
@@ -190,10 +178,7 @@ export class ChatService {
     }
 
     async NotifyGroup(userId: string) {
-        const prisma = this.prisma;
-        const connections = this.connections;
-
-        const list = await prisma.userGroup.findMany({
+        const list = await this.prisma.userGroup.findMany({
             where: {
                 userId: userId,
             }
@@ -202,15 +187,15 @@ export class ChatService {
         list.forEach(element => {
             groupIds.push(element.groupId)
         })
-        const groupList = await prisma.group.findMany({
+        const groupList = await this.prisma.group.findMany({
             where: {
                 groupId: {
                     in: groupIds
                 }
             }
         })
-        if (Object.prototype.hasOwnProperty.call(connections, userId)) {
-            const connection = connections[userId]
+        if (Object.prototype.hasOwnProperty.call(this.connections, userId)) {
+            const connection = this.connections[userId]
             connection.send("group-list", {
                 list: groupList
             } as IGroupListResp)
@@ -218,34 +203,28 @@ export class ChatService {
     }
 
     async AddUserToGroup(userId: string, groupId: string) {
-        const prisma = this.prisma;
-        const connections = this.connections;
-        const connectionsByGroupId = this.connectionsByGroupId;
-        const NotifyGroupInvitation = this.NotifyGroupInvitation;
-        const NotifyGroup = this.NotifyGroup;
-
-        await prisma.userGroup.deleteMany({
+        await this.prisma.userGroup.deleteMany({
             where: {
                 userId: userId,
                 groupId: groupId,
             }
         })
-        await prisma.userGroup.create({
+        await this.prisma.userGroup.create({
             data: {
                 userId: userId,
                 groupId: groupId,
             }
         })
-        if (!Object.prototype.hasOwnProperty.call(connectionsByGroupId, groupId)) {
-            connectionsByGroupId[groupId] = {}
+        if (!Object.prototype.hasOwnProperty.call(this.connectionsByGroupId, groupId)) {
+            this.connectionsByGroupId[groupId] = {}
         }
         // Add user to group
-        if (Object.prototype.hasOwnProperty.call(connections, userId)) {
-            const socket = connections[userId]
-            connectionsByGroupId[groupId][userId] = socket
+        if (Object.prototype.hasOwnProperty.call(this.connections, userId)) {
+            const socket = this.connections[userId]
+            this.connectionsByGroupId[groupId][userId] = socket
         }
         // Broadcast new member
-        const targetClients = connectionsByGroupId[groupId]
+        const targetClients = this.connectionsByGroupId[groupId]
         for (const targetUserId in targetClients) {
             const targetClient = targetClients[targetUserId]
             targetClient.send("group-join", {
@@ -254,372 +233,369 @@ export class ChatService {
                 name: targetClient.userData.name,
             } as IGroupJoinResp)
         }
-        await NotifyGroupInvitation(userId)
-        await NotifyGroup(userId)
+        await this.NotifyGroupInvitation(userId)
+        await this.NotifyGroup(userId)
     }
 
     public onCreateRoom(room: ChatRoom) {
-        const profanity = this.profanity;
-        const prisma = this.prisma
-        const connections = this.connections;
-        const connectionsByName = this.connectionsByName;
-        const connectionsByGroupId = this.connectionsByGroupId;
-        const AddUserToGroup = this.AddUserToGroup;
-        const NotifyGroup = this.NotifyGroup;
-        const NotifyGroupInvitation = this.NotifyGroupInvitation;
-        const NotifyGroupUser = this.NotifyGroupUser;
-        const GroupLeave = this.GroupLeave;
+        room.onMessage("local", this.onLocal)
+        room.onMessage("global", this.onGlobal)
+        room.onMessage("whisper", this.onWhisper)
+        room.onMessage("whisper-by-id", this.onWhisperById)
+        room.onMessage("group", this.onGroup)
+        room.onMessage("create-group", this.onCreateGroup)
+        room.onMessage("update-group", this.onUpdateGroup)
+        room.onMessage("group-invitation-list", this.onGroupInvitationList)
+        room.onMessage("group-user-list", this.onGroupUserList)
+        room.onMessage("group-list", this.onGroupList)
+        room.onMessage("group-invite", this.onGroupInvite)
+        room.onMessage("group-invite-accept", this.onGroupInviteAccept)
+        room.onMessage("group-invite-decline", this.onGroupInviteDecline)
+        room.onMessage("leave-group", this.onLeaveGroup)
+        room.onMessage("kick-user", this.onKickUser)
+    }
 
-        room.onMessage("local", (client, data) => {
-            const userId = client.userData.userId
-            if (!userId) {
-                return
-            }
-            for (const targetUserId in connections) {
-                const targetClient = connections[targetUserId]
-                targetClient.send("local", {
-                    userId: userId,
-                    name: client.userData.name,
-                    msg: profanity.censor(data.msg),
-                    map: data.map,
-                    x: data.x,
-                    y: data.y,
-                    z: data.z,
-                } as IChatResp)
-            }
-        })
-
-        room.onMessage("global", (client, data) => {
-            const userId = client.userData.userId
-            if (!userId) {
-                return
-            }
-            for (const targetUserId in connections) {
-                const targetClient = connections[targetUserId]
-                targetClient.send("global", {
-                    userId: userId,
-                    name: client.userData.name,
-                    msg: profanity.censor(data.msg),
-                } as IChatResp)
-            }
-        })
-
-        room.onMessage("whisper", (client, data) => {
-            const userId = client.userData.userId
-            if (!userId) {
-                return
-            }
-            const targetName = data.targetName
-            if (!Object.prototype.hasOwnProperty.call(connectionsByName, targetName)) {
-                return
-            }
-            const targetClient = connectionsByName[targetName]
-            targetClient.send("whisper", {
+    async onLocal(client: Client, data: any) {
+        const userId = client.userData.userId
+        if (!userId) {
+            return
+        }
+        for (const targetUserId in this.connections) {
+            const targetClient = this.connections[targetUserId]
+            targetClient.send("local", {
                 userId: userId,
-                userId2: targetClient.userData.userId,
                 name: client.userData.name,
-                name2: targetClient.userData.name,
-                msg: profanity.censor(data.msg),
+                msg: this.profanity.censor(data.msg),
+                map: data.map,
+                x: data.x,
+                y: data.y,
+                z: data.z,
             } as IChatResp)
-            client.send("whisper", {
-                userId: userId,
-                userId2: targetClient.userData.userId,
-                name: client.userData.name,
-                name2: targetClient.userData.name,
-                msg: profanity.censor(data.msg),
-            } as IChatResp)
-        })
+        }
+    }
 
-        room.onMessage("whisper-by-id", (client, data) => {
-            const userId = client.userData.userId
-            if (!userId) {
-                return
-            }
-            const targetUserId = data.targetUserId
-            if (!Object.prototype.hasOwnProperty.call(connections, targetUserId)) {
-                return
-            }
-            const targetClient = connections[targetUserId]
-            targetClient.send("whisper", {
+    async onGlobal(client: Client, data: any) {
+        const userId = client.userData.userId
+        if (!userId) {
+            return
+        }
+        for (const targetUserId in this.connections) {
+            const targetClient = this.connections[targetUserId]
+            targetClient.send("global", {
                 userId: userId,
-                userId2: targetClient.userData.userId,
                 name: client.userData.name,
-                name2: targetClient.userData.name,
-                msg: profanity.censor(data.msg),
+                msg: this.profanity.censor(data.msg),
             } as IChatResp)
-            client.send("whisper", {
+        }
+    }
+
+    async onWhisper(client: Client, data: any) {
+        const userId = client.userData.userId
+        if (!userId) {
+            return
+        }
+        const targetName = data.targetName
+        if (!Object.prototype.hasOwnProperty.call(this.connectionsByName, targetName)) {
+            return
+        }
+        const targetClient = this.connectionsByName[targetName]
+        targetClient.send("whisper", {
+            userId: userId,
+            userId2: targetClient.userData.userId,
+            name: client.userData.name,
+            name2: targetClient.userData.name,
+            msg: this.profanity.censor(data.msg),
+        } as IChatResp)
+        client.send("whisper", {
+            userId: userId,
+            userId2: targetClient.userData.userId,
+            name: client.userData.name,
+            name2: targetClient.userData.name,
+            msg: this.profanity.censor(data.msg),
+        } as IChatResp)
+    }
+
+    async onWhisperById(client: Client, data: any) {
+        const userId = client.userData.userId
+        if (!userId) {
+            return
+        }
+        const targetUserId = data.targetUserId
+        if (!Object.prototype.hasOwnProperty.call(this.connections, targetUserId)) {
+            return
+        }
+        const targetClient = this.connections[targetUserId]
+        targetClient.send("whisper", {
+            userId: userId,
+            userId2: targetClient.userData.userId,
+            name: client.userData.name,
+            name2: targetClient.userData.name,
+            msg: this.profanity.censor(data.msg),
+        } as IChatResp)
+        client.send("whisper", {
+            userId: userId,
+            userId2: targetClient.userData.userId,
+            name: client.userData.name,
+            name2: targetClient.userData.name,
+            msg: this.profanity.censor(data.msg),
+        } as IChatResp)
+    }
+
+    async onGroup(client: Client, data: any) {
+        const userId = client.userData.userId
+        if (!userId) {
+            return
+        }
+        const groupId = data.groupId
+        if (!groupId) {
+            return
+        }
+        // Has the group?
+        if (!Object.prototype.hasOwnProperty.call(this.connectionsByGroupId, groupId)) {
+            return
+        }
+        // User is in the group?
+        if (!Object.prototype.hasOwnProperty.call(this.connectionsByGroupId[groupId], userId)) {
+            return
+        }
+        const targetClients = this.connectionsByGroupId[groupId]
+        for (const targetUserId in targetClients) {
+            const targetClient = targetClients[targetUserId]
+            targetClient.send("group", {
+                groupId: groupId,
                 userId: userId,
-                userId2: targetClient.userData.userId,
                 name: client.userData.name,
-                name2: targetClient.userData.name,
-                msg: profanity.censor(data.msg),
+                msg: this.profanity.censor(data.msg),
             } as IChatResp)
-        })
+        }
+    }
 
-        room.onMessage("group", (client, data) => {
-            const userId = client.userData.userId
-            if (!userId) {
-                return
-            }
-            const groupId = data.groupId
-            if (!groupId) {
-                return
-            }
-            // Has the group?
-            if (!Object.prototype.hasOwnProperty.call(connectionsByGroupId, groupId)) {
-                return
-            }
-            // User is in the group?
-            if (!Object.prototype.hasOwnProperty.call(connectionsByGroupId[groupId], userId)) {
-                return
-            }
-            const targetClients = connectionsByGroupId[groupId]
-            for (const targetUserId in targetClients) {
-                const targetClient = targetClients[targetUserId]
-                targetClient.send("group", {
-                    groupId: groupId,
-                    userId: userId,
-                    name: client.userData.name,
-                    msg: profanity.censor(data.msg),
-                } as IChatResp)
+    async onCreateGroup(client: Client, data: any) {
+        const userId = client.userData.userId
+        if (!userId) {
+            return
+        }
+        const groupId = nanoid(8)
+        const title = data.title
+        const iconUrl = data.iconUrl
+        // Insert group data to database
+        await this.prisma.group.create({
+            data: {
+                groupId: groupId,
+                title: title,
+                iconUrl: iconUrl,
             }
         })
-
-        room.onMessage("create-group", async (client, data) => {
-            const userId = client.userData.userId
-            if (!userId) {
-                return
+        // Add user to the group
+        await this.prisma.userGroup.deleteMany({
+            where: {
+                userId: userId,
+                groupId: groupId,
             }
-            const groupId = nanoid(8)
-            const title = data.title
-            const iconUrl = data.iconUrl
-            // Insert group data to database
-            await prisma.group.create({
-                data: {
-                    groupId: groupId,
-                    title: title,
-                    iconUrl: iconUrl,
-                }
-            })
-            // Add user to the group
-            await prisma.userGroup.deleteMany({
-                where: {
-                    userId: userId,
-                    groupId: groupId,
-                }
-            })
-            await prisma.userGroup.create({
-                data: {
-                    userId: userId,
-                    groupId: groupId,
-                }
-            })
-            connectionsByGroupId[groupId] = {}
-            connectionsByGroupId[groupId][userId] = client
-            // Tell the client that the group was created
-            client.send("create-group", {
+        })
+        await this.prisma.userGroup.create({
+            data: {
+                userId: userId,
+                groupId: groupId,
+            }
+        })
+        this.connectionsByGroupId[groupId] = {}
+        this.connectionsByGroupId[groupId][userId] = client
+        // Tell the client that the group was created
+        client.send("create-group", {
+            groupId: groupId,
+            title: title,
+            iconUrl: iconUrl,
+        } as Group)
+    }
+
+    async onUpdateGroup(client: Client, data: any) {
+        const userId = client.userData.userId
+        if (!userId) {
+            return
+        }
+        const groupId = data.groupId
+        if (!groupId) {
+            return
+        }
+        // Has the group?
+        if (!Object.prototype.hasOwnProperty.call(this.connectionsByGroupId, groupId)) {
+            return
+        }
+        // User is in the group?
+        if (!Object.prototype.hasOwnProperty.call(this.connectionsByGroupId[groupId], userId)) {
+            return
+        }
+        // Update group data at database
+        const title = data.title
+        const iconUrl = data.iconUrl
+        await this.prisma.group.update({
+            where: {
+                groupId: groupId,
+            },
+            data: {
+                title: title,
+                iconUrl: iconUrl
+            },
+        })
+        // Tell the clients that the group was updated
+        const targetClients = this.connectionsByGroupId[groupId]
+        for (const targetUserId in targetClients) {
+            const targetClient = targetClients[targetUserId]
+            targetClient.send("update-group", {
                 groupId: groupId,
                 title: title,
                 iconUrl: iconUrl,
             } as Group)
-        })
+        }
+    }
 
-        room.onMessage("update-group", async (client, data) => {
-            const userId = client.userData.userId
-            if (!userId) {
-                return
-            }
-            const groupId = data.groupId
-            if (!groupId) {
-                return
-            }
-            // Has the group?
-            if (!Object.prototype.hasOwnProperty.call(connectionsByGroupId, groupId)) {
-                return
-            }
-            // User is in the group?
-            if (!Object.prototype.hasOwnProperty.call(connectionsByGroupId[groupId], userId)) {
-                return
-            }
-            // Update group data at database
-            const title = data.title
-            const iconUrl = data.iconUrl
-            await prisma.group.update({
+    async onGroupInvitationList(client: Client, data: any) {
+        const userId = client.userData.userId
+        if (!userId) {
+            return
+        }
+        await this.NotifyGroupInvitation(userId)
+    }
+
+    async onGroupUserList(client: Client, data: any) {
+        const userId = client.userData.userId
+        if (!userId) {
+            return
+        }
+        const groupId = data.groupId
+        if (!groupId) {
+            return
+        }
+        await this.NotifyGroupUser(userId, groupId)
+    }
+
+    async onGroupList(client: Client, data: any) {
+        const userId = client.userData.userId
+        if (!userId) {
+            return
+        }
+        await this.NotifyGroup(userId)
+    }
+
+    async onGroupInvite(client: Client, data: any) {
+        const inviteId = client.userData.userId
+        if (!inviteId) {
+            return
+        }
+        const userId = data.userId
+        if (!userId) {
+            return
+        }
+        const groupId = data.groupId
+        if (!groupId) {
+            return
+        }
+        // Has the group?
+        if (!Object.prototype.hasOwnProperty.call(this.connectionsByGroupId, groupId)) {
+            return
+        }
+        // Inviter is in the group?
+        if (!Object.prototype.hasOwnProperty.call(this.connectionsByGroupId[groupId], inviteId)) {
+            return
+        }
+        let mode: Number = 0
+        if (process.env.GROUP_USER_ADD_MODE) {
+            mode = Number(process.env.GROUP_USER_ADD_MODE)
+        }
+        if (mode == 0) {
+            // Create invitation
+            await this.prisma.userGroupInvitation.deleteMany({
                 where: {
+                    userId: userId,
                     groupId: groupId,
-                },
+                }
+            })
+            await this.prisma.userGroupInvitation.create({
                 data: {
-                    title: title,
-                    iconUrl: iconUrl
-                },
-            })
-            // Tell the clients that the group was updated
-            const targetClients = connectionsByGroupId[groupId]
-            for (const targetUserId in targetClients) {
-                const targetClient = targetClients[targetUserId]
-                targetClient.send("update-group", {
-                    groupId: groupId,
-                    title: title,
-                    iconUrl: iconUrl,
-                } as Group)
-            }
-        })
-
-        room.onMessage("group-invitation-list", async (client, data) => {
-            const userId = client.userData.userId
-            if (!userId) {
-                return
-            }
-            await NotifyGroupInvitation(userId)
-        })
-
-        room.onMessage("group-user-list", async (client, data) => {
-            const userId = client.userData.userId
-            if (!userId) {
-                return
-            }
-            const groupId = data.groupId
-            if (!groupId) {
-                return
-            }
-            await NotifyGroupUser(userId, groupId)
-        })
-
-        room.onMessage("group-list", async (client, data) => {
-            const userId = client.userData.userId
-            if (!userId) {
-                return
-            }
-            await NotifyGroup(userId)
-        })
-
-        room.onMessage("group-invite", async (client, data) => {
-            const inviteId = client.userData.userId
-            if (!inviteId) {
-                return
-            }
-            const userId = data.userId
-            if (!userId) {
-                return
-            }
-            const groupId = data.groupId
-            if (!groupId) {
-                return
-            }
-            // Has the group?
-            if (!Object.prototype.hasOwnProperty.call(connectionsByGroupId, groupId)) {
-                return
-            }
-            // Inviter is in the group?
-            if (!Object.prototype.hasOwnProperty.call(connectionsByGroupId[groupId], inviteId)) {
-                return
-            }
-            let mode: Number = 0
-            if (process.env.GROUP_USER_ADD_MODE) {
-                mode = Number(process.env.GROUP_USER_ADD_MODE)
-            }
-            if (mode == 0) {
-                // Create invitation
-                await prisma.userGroupInvitation.deleteMany({
-                    where: {
-                        userId: userId,
-                        groupId: groupId,
-                    }
-                })
-                await prisma.userGroupInvitation.create({
-                    data: {
-                        userId: userId,
-                        groupId: groupId,
-                    }
-                })
-                await NotifyGroupInvitation(userId)
-            } else {
-                await AddUserToGroup(userId, groupId)
-            }
-        })
-
-        room.onMessage("group-invite-accept", async (client, data) => {
-            const userId = client.userData.userId
-            if (!userId) {
-                return
-            }
-            const groupId = data.groupId
-            if (!groupId) {
-                return
-            }
-            // Validate invitation
-            const countInvitation = await prisma.userGroupInvitation.count({
-                where: {
                     userId: userId,
                     groupId: groupId,
                 }
             })
-            if (countInvitation == 0) {
-                return
-            }
-            // Delete invitation
-            await prisma.userGroupInvitation.deleteMany({
-                where: {
-                    userId: userId,
-                    groupId: groupId,
-                }
-            })
-            // Add user to the group
-            AddUserToGroup(userId, groupId)
-        })
+            await this.NotifyGroupInvitation(userId)
+        } else {
+            await this.AddUserToGroup(userId, groupId)
+        }
+    }
 
-        room.onMessage("group-invite-decline", async (client, data) => {
-            const userId = client.userData.userId
-            if (!userId) {
-                return
+    async onGroupInviteAccept(client: Client, data: any) {
+        const userId = client.userData.userId
+        if (!userId) {
+            return
+        }
+        const groupId = data.groupId
+        if (!groupId) {
+            return
+        }
+        // Validate invitation
+        const countInvitation = await this.prisma.userGroupInvitation.count({
+            where: {
+                userId: userId,
+                groupId: groupId,
             }
-            const groupId = data.groupId
-            if (!groupId) {
-                return
-            }
-            // Validate invitation
-            const countInvitation = await prisma.userGroupInvitation.count({
-                where: {
-                    userId: userId,
-                    groupId: groupId,
-                }
-            })
-            if (countInvitation == 0) {
-                return
-            }
-            // Delete invitation
-            await prisma.userGroupInvitation.deleteMany({
-                where: {
-                    userId: userId,
-                    groupId: groupId,
-                }
-            })
-            await NotifyGroupInvitation(userId)
         })
+        if (countInvitation == 0) {
+            return
+        }
+        // Delete invitation
+        await this.prisma.userGroupInvitation.deleteMany({
+            where: {
+                userId: userId,
+                groupId: groupId,
+            }
+        })
+        // Add user to the group
+        await this.AddUserToGroup(userId, groupId)
+    }
 
-        room.onMessage("leave-group", (client, data) => {
-            GroupLeave(data.groupId, client.userData.userId)
+    async onGroupInviteDecline(client: Client, data: any) {
+        const userId = client.userData.userId
+        if (!userId) {
+            return
+        }
+        const groupId = data.groupId
+        if (!groupId) {
+            return
+        }
+        // Validate invitation
+        const countInvitation = await this.prisma.userGroupInvitation.count({
+            where: {
+                userId: userId,
+                groupId: groupId,
+            }
         })
+        if (countInvitation == 0) {
+            return
+        }
+        // Delete invitation
+        await this.prisma.userGroupInvitation.deleteMany({
+            where: {
+                userId: userId,
+                groupId: groupId,
+            }
+        })
+        await this.NotifyGroupInvitation(userId)
+    }
 
-        room.onMessage("kick-user", (client, data) => {
-            GroupLeave(data.groupId, data.userId)
-        })
+    async onLeaveGroup(client: Client, data: any) {
+        await this.GroupLeave(data.groupId, client.userData.userId)
+    }
+
+    async onKickUser(client: Client, data: any) {
+        await this.GroupLeave(data.groupId, data.userId)
     }
 
     public async onAuth(client: Client, options: any) {
-        const logger = this.logger;
-        const prisma = this.prisma
-        const connectingUsers = this.connectingUsers;
-        const connections = this.connections;
-        const connectionsByName = this.connectionsByName;
-        const connectionsByGroupId = this.connectionsByGroupId;
-        const NotifyGroup = this.NotifyGroup;
-
         const token = options.token
         if (!token) {
             return
         }
-        
+
         const splitingData = token.split("|")
         if (splitingData.length < 2) {
             return
@@ -631,42 +607,42 @@ export class ChatService {
             return
         }
         
-        if (!Object.prototype.hasOwnProperty.call(connectingUsers, userId)) {
+        if (!Object.prototype.hasOwnProperty.call(this.connectingUsers, userId)) {
             return
         }
 
-        const connectingUser = connectingUsers[userId]
+        const connectingUser = this.connectingUsers[userId]
         if (connectionKey != connectingUser.connectionKey) {
             return
         }
 
         // Disconnect older socket
-        if (Object.prototype.hasOwnProperty.call(connections, userId)) {
-            connections[userId].leave()
-            logger.info(`[chat] Disconnect [${connections[userId].id}] because it is going to connect by newer client with the same user ID`)
+        if (Object.prototype.hasOwnProperty.call(this.connections, userId)) {
+            this.connections[userId].leave()
+            this.logger.info(`[chat] Disconnect [${this.connections[userId].id}] because it is going to connect by newer client with the same user ID`)
         }
 
         // Set user data after connected
         client.userData = connectingUser
 
         // Set socket client to the collections
-        connections[userId] = client
-        connectionsByName[connectingUser.name] = client
+        this.connections[userId] = client
+        this.connectionsByName[connectingUser.name] = client
 
         // Find and store user groups
-        const userGroups = await prisma.userGroup.findMany({
+        const userGroups = await this.prisma.userGroup.findMany({
             where: {
                 userId: userId
             }
         })
         userGroups.forEach(userGroup => {
-            if (!Object.prototype.hasOwnProperty.call(connectionsByGroupId, userGroup.groupId)) {
-                connectionsByGroupId[userGroup.groupId] = {}
+            if (!Object.prototype.hasOwnProperty.call(this.connectionsByGroupId, userGroup.groupId)) {
+                this.connectionsByGroupId[userGroup.groupId] = {}
             }
-            connectionsByGroupId[userGroup.groupId][userId] = client
+            this.connectionsByGroupId[userGroup.groupId][userId] = client
         })
 
-        await NotifyGroup(userId)
+        await this.NotifyGroup(userId)
     }
 }
 
