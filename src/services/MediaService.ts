@@ -532,6 +532,10 @@ export class MediaService {
         const connections = this.connections;
 
         const token = options.token
+        if (!token) {
+            return
+        }
+        
         const splitingData = token.split("|")
         if (splitingData.length < 2) {
             return

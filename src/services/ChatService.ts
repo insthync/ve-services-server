@@ -616,6 +616,10 @@ export class ChatService {
         const NotifyGroup = this.NotifyGroup;
 
         const token = options.token
+        if (!token) {
+            return
+        }
+        
         const splitingData = token.split("|")
         if (splitingData.length < 2) {
             return
@@ -661,7 +665,7 @@ export class ChatService {
             }
             connectionsByGroupId[userGroup.groupId][userId] = client
         })
-        
+
         await NotifyGroup(userId)
     }
 }
