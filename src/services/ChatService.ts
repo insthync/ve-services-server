@@ -29,7 +29,7 @@ export class ChatService {
         this.app.post("/chat/remove-user", this.validateSystem, this.onRemoveUser);
     }
 
-    async onAddUser(req: express.Request, res: express.Response, next: express.NextFunction) {
+    async onAddUser(req: express.Request, res: express.Response) {
         const connectionKey = nanoid();
         const connectingUser = {
             userId: req.body.userId,
@@ -66,7 +66,7 @@ export class ChatService {
         res.status(200).send(connectingUser)
     }
 
-    async onRemoveUser(req: express.Request, res: express.Response, next: express.NextFunction) {
+    async onRemoveUser(req: express.Request, res: express.Response) {
         delete this.connectingUsers[req.body.userId]
         res.status(200).send()
     }
