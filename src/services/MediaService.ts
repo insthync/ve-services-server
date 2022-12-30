@@ -51,11 +51,11 @@ export class MediaService {
     setupRoutes() {
         this.app.use(fileupload());
         this.app.use('/media/uploads', express.static('uploads'));
-        this.app.post('/media/add-user', this.validateSystem, this.onAddUser)
-        this.app.post('/media/remove-user', this.validateSystem, this.onRemoveUser)
-        this.app.post('/media/upload', this.validateUser, this.onUploadMedia)
-        this.app.delete('/media/:id', this.validateUser, this.onDeleteMedia)
-        this.app.get('/media/:playListId', this.onGetMediaList)
+        this.app.post('/media/add-user', this.validateSystem.bind(this), this.onAddUser.bind(this))
+        this.app.post('/media/remove-user', this.validateSystem.bind(this), this.onRemoveUser.bind(this))
+        this.app.post('/media/upload', this.validateUser.bind(this), this.onUploadMedia.bind(this))
+        this.app.delete('/media/:id', this.validateUser.bind(this), this.onDeleteMedia.bind(this))
+        this.app.get('/media/:playListId', this.onGetMediaList.bind(this))
     }
 
     onAddUser(req: express.Request, res: express.Response) {
@@ -240,13 +240,13 @@ export class MediaService {
     }
 
     public onCreateRoom(room: MediaRoom) {
-        room.onMessage("sub", this.onSub)
-        room.onMessage("play", this.onPlay)
-        room.onMessage("pause", this.onPause)
-        room.onMessage("stop", this.onStop)
-        room.onMessage("seek", this.onSeek)
-        room.onMessage("volume", this.onVolume)
-        room.onMessage("switch", this.onSwitch)
+        room.onMessage("sub", this.onSub.bind(this))
+        room.onMessage("play", this.onPlay.bind(this))
+        room.onMessage("pause", this.onPause.bind(this))
+        room.onMessage("stop", this.onStop.bind(this))
+        room.onMessage("seek", this.onSeek.bind(this))
+        room.onMessage("volume", this.onVolume.bind(this))
+        room.onMessage("switch", this.onSwitch.bind(this))
         const self = this
         room.setSimulationInterval((deltaTime: number) => this.update(deltaTime, self.prisma, self.playLists, self.playListSubscribers, self.deletingMediaIds), 1000);
     }

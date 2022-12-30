@@ -25,8 +25,8 @@ export class ChatService {
     }
 
     setupRoutes() {
-        this.app.post("/chat/add-user", this.validateSystem, this.onAddUser);
-        this.app.post("/chat/remove-user", this.validateSystem, this.onRemoveUser);
+        this.app.post("/chat/add-user", this.validateSystem.bind(this), this.onAddUser.bind(this));
+        this.app.post("/chat/remove-user", this.validateSystem.bind(this), this.onRemoveUser.bind(this));
     }
 
     async onAddUser(req: express.Request, res: express.Response) {
@@ -238,21 +238,21 @@ export class ChatService {
     }
 
     public onCreateRoom(room: ChatRoom) {
-        room.onMessage("local", this.onLocal)
-        room.onMessage("global", this.onGlobal)
-        room.onMessage("whisper", this.onWhisper)
-        room.onMessage("whisper-by-id", this.onWhisperById)
-        room.onMessage("group", this.onGroup)
-        room.onMessage("create-group", this.onCreateGroup)
-        room.onMessage("update-group", this.onUpdateGroup)
-        room.onMessage("group-invitation-list", this.onGroupInvitationList)
-        room.onMessage("group-user-list", this.onGroupUserList)
-        room.onMessage("group-list", this.onGroupList)
-        room.onMessage("group-invite", this.onGroupInvite)
-        room.onMessage("group-invite-accept", this.onGroupInviteAccept)
-        room.onMessage("group-invite-decline", this.onGroupInviteDecline)
-        room.onMessage("leave-group", this.onLeaveGroup)
-        room.onMessage("kick-user", this.onKickUser)
+        room.onMessage("local", this.onLocal.bind(this))
+        room.onMessage("global", this.onGlobal.bind(this))
+        room.onMessage("whisper", this.onWhisper.bind(this))
+        room.onMessage("whisper-by-id", this.onWhisperById.bind(this))
+        room.onMessage("group", this.onGroup.bind(this))
+        room.onMessage("create-group", this.onCreateGroup.bind(this))
+        room.onMessage("update-group", this.onUpdateGroup.bind(this))
+        room.onMessage("group-invitation-list", this.onGroupInvitationList.bind(this))
+        room.onMessage("group-user-list", this.onGroupUserList.bind(this))
+        room.onMessage("group-list", this.onGroupList.bind(this))
+        room.onMessage("group-invite", this.onGroupInvite.bind(this))
+        room.onMessage("group-invite-accept", this.onGroupInviteAccept.bind(this))
+        room.onMessage("group-invite-decline", this.onGroupInviteDecline.bind(this))
+        room.onMessage("leave-group", this.onLeaveGroup.bind(this))
+        room.onMessage("kick-user", this.onKickUser.bind(this))
     }
 
     async onLocal(client: Client, data: any) {

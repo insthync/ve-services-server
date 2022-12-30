@@ -15,8 +15,8 @@ export class ListingService {
     }
 
     setupRoutes() {
-        this.app.get('/listing', this.onGetList);
-        this.app.get('/listing/total-player', this.onGetTotalPlayer);
+        this.app.get('/listing', this.onGetList.bind(this));
+        this.app.get('/listing/total-player', this.onGetTotalPlayer.bind(this));
     }
 
     onGetList(req: express.Request, res: express.Response) {
@@ -46,7 +46,7 @@ export class ListingService {
     }
 
     public onCreateRoom(room: ListingRoom) {
-        room.onMessage('update', this.onUpdate);
+        room.onMessage('update', this.onUpdate.bind(this));
     }
 
     onUpdate(client: Client, msg: IGameServerData) {
