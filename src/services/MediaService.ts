@@ -49,134 +49,129 @@ export class MediaService {
     }
 
     setupRoutes() {
-        const app = this.app;
-        const prisma = this.prisma;
-        const playLists = this.playLists;
-        const playListSubscribers = this.playListSubscribers;
-        const deletingMediaIds = this.deletingMediaIds;
-        const connectingUsers = this.connectingUsers;
-        const validateSystem = this.validateSystem;
-        const validateUser = this.validateUser;
+        this.app.use(fileupload());
+        this.app.use('/media/uploads', express.static('uploads'));
+        this.app.post('/media/add-user', this.validateSystem, this.onAddUser)
+        this.app.post('/media/remove-user', this.validateSystem, this.onRemoveUser)
+        this.app.post('/media/upload', this.validateUser, this.onUploadMedia)
+        this.app.delete('/media/:id', this.validateUser, this.onDeleteMedia)
+        this.app.get('/media/:playListId', this.onGetMediaList)
+    }
 
-        app.use(fileupload());
-        app.use('/media/uploads', express.static('uploads'));
+    onAddUser(req: express.Request, res: express.Response) {
+        const connectionKey = nanoid();
+        const connectingUser = {
+            userId: req.body.userId,
+            connectionKey: connectionKey,
+            token: req.body.userId + "|" + connectionKey,
+        } as IClientData
+        this.connectingUsers[req.body.userId] = connectingUser
+        // Send response back
+        res.status(200).send(connectingUser)
+    }
 
-        app.post('/media/add-user', validateSystem, async (req, res) => {
-            const connectionKey = nanoid();
-            const connectingUser = {
-                userId: req.body.userId,
-                connectionKey: connectionKey,
-                token: req.body.userId + "|" + connectionKey,
-            } as IClientData
-            connectingUsers[req.body.userId] = connectingUser
-            // Send response back
-            res.status(200).send(connectingUser)
-        })
+    onRemoveUser(req: express.Request, res: express.Response) {
+        delete this.connectingUsers[req.body.userId]
+        res.status(200).send()
+    }
 
-        app.post('/media/remove-user', validateSystem, async (req, res) => {
-            delete connectingUsers[req.body.userId]
-            res.status(200).send()
-        })
+    async onUploadMedia(req: express.Request, res: express.Response) {
+        try {
+            if (!req.files) {
+                // No files
+                res.sendStatus(404)
+            } else {
+                // Get and move video file to upload path
+                const id = nanoid()
+                const playListId: string = req.body.playListId
+                const file: fileupload.UploadedFile = req.files.file as fileupload.UploadedFile
+                const fileName = file.name
+                const savePath = '.media/uploads/' + id + '_' + fileName
+                const fullSavePath = process.cwd() + '/media/uploads/' + id + '_' + fileName
+                await file.mv(fullSavePath)
 
-        app.post('/media/upload', validateUser, async (req: express.Request, res: express.Response) => {
-            try {
-                if (!req.files) {
-                    // No files
-                    res.sendStatus(404)
-                } else {
-                    // Get and move video file to upload path
-                    const id = nanoid()
-                    const playListId: string = req.body.playListId
-                    const file: fileupload.UploadedFile = req.files.file as fileupload.UploadedFile
-                    const fileName = file.name
-                    const savePath = '.media/uploads/' + id + '_' + fileName
-                    const fullSavePath = process.cwd() + '/media/uploads/' + id + '_' + fileName
-                    await file.mv(fullSavePath)
+                const duration = await getVideoDurationInSeconds(
+                    fullSavePath
+                )
 
-                    const duration = await getVideoDurationInSeconds(
-                        fullSavePath
-                    )
+                const lastVideo = await this.prisma.videos.findFirst({
+                    where: {
+                        playListId: playListId,
+                    },
+                    orderBy: {
+                        sortOrder: 'desc',
+                    },
+                })
 
-                    const lastVideo = await prisma.videos.findFirst({
-                        where: {
+                // Store video to database
+                const media = await this.prisma.videos.create({
+                    data: {
+                        id: id,
+                        playListId: playListId,
+                        filePath: savePath,
+                        duration: duration,
+                        sortOrder: lastVideo ? lastVideo.sortOrder + 1 : 1,
+                    },
+                })
+
+                // Create new playlist if it not existed
+                if (!Object.hasOwnProperty.call(this.playLists, playListId)) {
+                    this.playLists[playListId] = {
+                        mediaId: media.id,
+                        duration: media.duration,
+                        filePath: media.filePath,
+                        isPlaying: true,
+                        time: 0,
+                    } as IMediaData;
+                }
+
+                if (!lastVideo) {
+                    // This is first video
+                    if (!Object.hasOwnProperty.call(this.playListSubscribers, playListId)) {
+                        this.playListSubscribers[playListId] = []
+                    }
+                    const currentPlayListSubscribers = this.playListSubscribers[playListId]
+                    for (const currentPlayListSubscriber of currentPlayListSubscribers) {
+                        currentPlayListSubscriber.send('resp', {
                             playListId: playListId,
-                        },
-                        orderBy: {
-                            sortOrder: 'desc',
-                        },
-                    })
-
-                    // Store video to database
-                    const media = await prisma.videos.create({
-                        data: {
-                            id: id,
-                            playListId: playListId,
-                            filePath: savePath,
-                            duration: duration,
-                            sortOrder: lastVideo ? lastVideo.sortOrder + 1 : 1,
-                        },
-                    })
-
-                    // Create new playlist if it not existed
-                    if (!Object.hasOwnProperty.call(playLists, playListId)) {
-                        playLists[playListId] = {
                             mediaId: media.id,
-                            duration: media.duration,
-                            filePath: media.filePath,
                             isPlaying: true,
+                            filePath: savePath,
                             time: 0,
-                        } as IMediaData;
+                            duration: duration,
+                        } as IMediaResp)
                     }
-
-                    if (!lastVideo) {
-                        // This is first video
-                        if (!Object.hasOwnProperty.call(playListSubscribers, playListId)) {
-                            playListSubscribers[playListId] = []
-                        }
-                        const currentPlayListSubscribers = playListSubscribers[playListId]
-                        for (const currentPlayListSubscriber of currentPlayListSubscribers) {
-                            currentPlayListSubscriber.send('resp', {
-                                playListId: playListId,
-                                mediaId: media.id,
-                                isPlaying: true,
-                                filePath: savePath,
-                                time: 0,
-                                duration: duration,
-                            } as IMediaResp)
-                        }
-                    }
-
-                    res.status(200).send()
                 }
-            } catch (err) {
-                console.error(err)
-                res.status(500).send(err)
+                res.status(200).send()
             }
-        })
+        } catch (err) {
+            console.error(err)
+            res.status(500).send(err)
+        }
+    }
 
-        app.delete('/media/:id', validateUser, async (req, res) => {
-            deletingMediaIds.push(req.params.id)
-            res.status(200).send()
-        })
+    onDeleteMedia(req: express.Request, res: express.Response) {
+        this.deletingMediaIds.push(req.params.id)
+        res.status(200).send()
+    }
 
-        app.get('/media/:playListId', async (req, res) => {
-            const videos = await prisma.videos.findMany({
-                where: {
-                    playListId: req.params.playListId,
-                },
-                orderBy: {
-                    sortOrder: 'asc',
-                },
-            })
-            // Don't include deleting media
-            for (let index = videos.length - 1; index >= 0; --index) {
-                const video = videos[index]
-                if (deletingMediaIds.indexOf(video.id) >= 0) {
-                    videos.splice(index, 1)
-                }
+    async onGetMediaList(req: express.Request, res: express.Response) {
+        const videos = await this.prisma.videos.findMany({
+            where: {
+                playListId: req.params.playListId,
+            },
+            orderBy: {
+                sortOrder: 'asc',
+            },
+        })
+        // Don't include deleting media
+        for (let index = videos.length - 1; index >= 0; --index) {
+            const video = videos[index]
+            if (this.deletingMediaIds.indexOf(video.id) >= 0) {
+                videos.splice(index, 1)
             }
-            res.status(200).send(videos)
-        })
+        }
+        res.status(200).send(videos)
     }
 
     validateSystem(req: express.Request, res: express.Response, next: express.NextFunction) {
@@ -203,7 +198,7 @@ export class MediaService {
             res.sendStatus(400)
             return
         }
-        
+
         // Substring `bearer `, length is 7
         const token = bearerHeader.substring(7)
         const splitingData = token.split("|")
@@ -245,187 +240,186 @@ export class MediaService {
     }
 
     public onCreateRoom(room: MediaRoom) {
-        const logger = this.logger;
-        const prisma = this.prisma;
-        const playLists = this.playLists;
-        const playListSubscribers = this.playListSubscribers;
-        const deletingMediaIds = this.deletingMediaIds;
-        const adminUserIds = this.connectingUsers;
-        const sendResp = this.sendResp;
+        room.onMessage("sub", this.onSub)
+        room.onMessage("play", this.onPlay)
+        room.onMessage("pause", this.onPause)
+        room.onMessage("stop", this.onStop)
+        room.onMessage("seek", this.onSeek)
+        room.onMessage("volume", this.onVolume)
+        room.onMessage("switch", this.onSwitch)
+        const self = this
+        room.setSimulationInterval((deltaTime: number) => this.update(deltaTime, self.prisma, self.playLists, self.playListSubscribers, self.deletingMediaIds), 1000);
+    }
 
-        room.onMessage("sub", (client, playListId) => {
-            logger.info(`[media] ${client.id} requested to sub ${playListId}`)
-            if (!Object.hasOwnProperty.call(playListSubscribers, playListId)) {
-                playListSubscribers[playListId] = []
-            }
-            const currentPlayListSubscribers = playListSubscribers[playListId]
-            if (currentPlayListSubscribers.indexOf(client) < 0) {
-                currentPlayListSubscribers.push(client)
-                logger.info(`[media] ${client.id} sub ${playListId}`)
-            }
-            // Find the playlist, if found then `resp`
-            if (!Object.hasOwnProperty.call(playLists, playListId)) {
-                return
-            }
-            const currentPlayList = playLists[playListId]
-            // Response current media to the client
-            sendResp(client, playListId, currentPlayList)
+    onSub(client: Client, playListId: string) {
+        this.logger.info(`[media] ${client.id} requested to sub ${playListId}`)
+        if (!Object.hasOwnProperty.call(this.playListSubscribers, playListId)) {
+            this.playListSubscribers[playListId] = []
+        }
+        const currentPlayListSubscribers = this.playListSubscribers[playListId]
+        if (currentPlayListSubscribers.indexOf(client) < 0) {
+            currentPlayListSubscribers.push(client)
+            this.logger.info(`[media] ${client.id} sub ${playListId}`)
+        }
+        // Find the playlist, if found then `resp`
+        if (!Object.hasOwnProperty.call(this.playLists, playListId)) {
+            return
+        }
+        const currentPlayList = this.playLists[playListId]
+        // Response current media to the client
+        this.sendResp(client, playListId, currentPlayList)
+    }
+
+    onPlay(client: Client, playListId: string) {
+        const userId = client.userData.userId
+        if (!userId) {
+            return
+        }
+        this.logger.info(`[media] ${client.id} requested to play ${playListId} by user: ${userId}`)
+        if (!Object.hasOwnProperty.call(this.playLists, playListId)) {
+            return
+        }
+        const currentPlayList = this.playLists[playListId]
+        if (!Object.hasOwnProperty.call(this.playListSubscribers, playListId)) {
+            this.playListSubscribers[playListId] = []
+        }
+        const currentPlayListSubscribers = this.playListSubscribers[playListId]
+        currentPlayList.isPlaying = true
+        this.playLists[playListId] = currentPlayList
+        for (let i = 0; i < currentPlayListSubscribers.length; ++i) {
+            this.sendResp(currentPlayListSubscribers[i], playListId, currentPlayList)
+        }
+        this.logger.info(`[media] ${client.id} play ${playListId}`)
+    }
+
+    onPause(client: Client, playListId: string) {
+        const userId = client.userData.userId
+        if (!userId) {
+            return
+        }
+        this.logger.info(`[media] ${client.id} requested to pause ${playListId} by user: ${userId}`)
+        if (!Object.hasOwnProperty.call(this.playLists, playListId)) {
+            return
+        }
+        const currentPlayList = this.playLists[playListId]
+        if (!Object.hasOwnProperty.call(this.playListSubscribers, playListId)) {
+            this.playListSubscribers[playListId] = []
+        }
+        const currentPlayListSubscribers = this.playListSubscribers[playListId]
+        currentPlayList.isPlaying = false
+        this.playLists[playListId] = currentPlayList
+        for (let i = 0; i < currentPlayListSubscribers.length; ++i) {
+            this.sendResp(currentPlayListSubscribers[i], playListId, currentPlayList)
+        }
+        this.logger.info(`[media] ${client.id} pause ${playListId}`)
+    }
+
+    onStop(client: Client, playListId: string) {
+        const userId = client.userData.userId
+        if (!userId) {
+            return
+        }
+        this.logger.info(`[media] ${client.id} requested to stop ${playListId} by user: ${userId}`)
+        if (!Object.hasOwnProperty.call(this.playLists, playListId)) {
+            return
+        }
+        const currentPlayList = this.playLists[playListId]
+        if (!Object.hasOwnProperty.call(this.playListSubscribers, playListId)) {
+            this.playListSubscribers[playListId] = []
+        }
+        const currentPlayListSubscribers = this.playListSubscribers[playListId]
+        currentPlayList.isPlaying = false
+        currentPlayList.time = 0
+        this.playLists[playListId] = currentPlayList
+        for (let i = 0; i < currentPlayListSubscribers.length; ++i) {
+            this.sendResp(currentPlayListSubscribers[i], playListId, currentPlayList)
+        }
+        this.logger.info(`[media] ${client.id} stop ${playListId}`)
+    }
+
+    onSeek(client: Client, msg: any) {
+        const userId = client.userData.userId
+        if (!userId) {
+            return
+        }
+        const playListId = msg.playListId
+        this.logger.info(`[media] ${client.id} requested to seek ${playListId} by user: ${userId}`)
+        if (!Object.hasOwnProperty.call(this.playLists, playListId)) {
+            return
+        }
+        const currentPlayList = this.playLists[playListId]
+        if (!Object.hasOwnProperty.call(this.playListSubscribers, playListId)) {
+            this.playListSubscribers[playListId] = []
+        }
+        const currentPlayListSubscribers = this.playListSubscribers[playListId]
+        currentPlayList.time = msg.time
+        this.playLists[playListId] = currentPlayList
+        for (let i = 0; i < currentPlayListSubscribers.length; ++i) {
+            this.sendResp(currentPlayListSubscribers[i], playListId, currentPlayList)
+        }
+        this.logger.info(`[media] ${client.id} seek ${playListId}`)
+    }
+
+    onVolume(client: Client, data: any) {
+        const userId = client.userData.userId
+        if (!userId) {
+            return
+        }
+        const playListId = data.playListId
+        this.logger.info(`[media] ${client.id} requested to volume ${playListId} by user: ${userId}`)
+        if (!Object.hasOwnProperty.call(this.playLists, playListId)) {
+            return
+        }
+        const currentPlayList = this.playLists[playListId]
+        if (!Object.hasOwnProperty.call(this.playListSubscribers, playListId)) {
+            this.playListSubscribers[playListId] = []
+        }
+        const currentPlayListSubscribers = this.playListSubscribers[playListId]
+        currentPlayList.volume = data.volume
+        this.playLists[playListId] = currentPlayList
+        for (let i = 0; i < currentPlayListSubscribers.length; ++i) {
+            this.sendResp(currentPlayListSubscribers[i], playListId, currentPlayList)
+        }
+        this.logger.info(`[media] ${client.id} volume ${playListId}`)
+    }
+
+    async onSwitch(client: Client, data: any) {
+        const userId = client.userData.userId
+        if (!userId) {
+            return
+        }
+        const playListId = data.playListId
+        this.logger.info(`[media] ${client.id} requested to switch ${playListId} by user: ${userId}`)
+        if (!Object.hasOwnProperty.call(this.playLists, playListId)) {
+            return
+        }
+        const currentPlayList = this.playLists[playListId]
+        if (!Object.hasOwnProperty.call(this.playListSubscribers, playListId)) {
+            this.playListSubscribers[playListId] = []
+        }
+        const mediaId = data.mediaId
+        const media = await this.prisma.videos.findFirst({
+            where: {
+                id: mediaId,
+                playListId: playListId,
+            },
         })
-
-        room.onMessage("play", (client, playListId) => {
-            const userId = client.userData.userId
-            if (!userId) {
-                return
-            }
-            logger.info(`[media] ${client.id} requested to play ${playListId} by user: ${userId}`)
-            if (!Object.hasOwnProperty.call(playLists, playListId)) {
-                return
-            }
-            const currentPlayList = playLists[playListId]
-            if (!Object.hasOwnProperty.call(playListSubscribers, playListId)) {
-                playListSubscribers[playListId] = []
-            }
-            const currentPlayListSubscribers = playListSubscribers[playListId]
-            currentPlayList.isPlaying = true
-            playLists[playListId] = currentPlayList
-            currentPlayListSubscribers.forEach(element => {
-                sendResp(element, playListId, currentPlayList)
-            })
-            logger.info(`[media] ${client.id} play ${playListId}`)
-        })
-
-        room.onMessage("pause", (client, playListId) => {
-            const userId = client.userData.userId
-            if (!userId) {
-                return
-            }
-            logger.info(`[media] ${client.id} requested to pause ${playListId} by user: ${userId}`)
-            if (!Object.hasOwnProperty.call(playLists, playListId)) {
-                return
-            }
-            const currentPlayList = playLists[playListId]
-            if (!Object.hasOwnProperty.call(playListSubscribers, playListId)) {
-                playListSubscribers[playListId] = []
-            }
-            const currentPlayListSubscribers = playListSubscribers[playListId]
-            currentPlayList.isPlaying = false
-            playLists[playListId] = currentPlayList
-            currentPlayListSubscribers.forEach(element => {
-                sendResp(element, playListId, currentPlayList)
-            })
-            logger.info(`[media] ${client.id} pause ${playListId}`)
-        })
-
-        room.onMessage("stop", (client, playListId) => {
-            const userId = client.userData.userId
-            if (!userId) {
-                return
-            }
-            logger.info(`[media] ${client.id} requested to stop ${playListId} by user: ${userId}`)
-            if (!Object.hasOwnProperty.call(playLists, playListId)) {
-                return
-            }
-            const currentPlayList = playLists[playListId]
-            if (!Object.hasOwnProperty.call(playListSubscribers, playListId)) {
-                playListSubscribers[playListId] = []
-            }
-            const currentPlayListSubscribers = playListSubscribers[playListId]
-            currentPlayList.isPlaying = false
-            currentPlayList.time = 0
-            playLists[playListId] = currentPlayList
-            currentPlayListSubscribers.forEach(element => {
-                sendResp(element, playListId, currentPlayList)
-            })
-            logger.info(`[media] ${client.id} stop ${playListId}`)
-        })
-
-        room.onMessage("seek", (client, msg) => {
-            const userId = client.userData.userId
-            if (!userId) {
-                return
-            }
-            const playListId = msg.playListId
-            logger.info(`[media] ${client.id} requested to seek ${playListId} by user: ${userId}`)
-            if (!Object.hasOwnProperty.call(playLists, playListId)) {
-                return
-            }
-            const currentPlayList = playLists[playListId]
-            if (!Object.hasOwnProperty.call(playListSubscribers, playListId)) {
-                playListSubscribers[playListId] = []
-            }
-            const currentPlayListSubscribers = playListSubscribers[playListId]
-            currentPlayList.time = msg.time
-            playLists[playListId] = currentPlayList
-            currentPlayListSubscribers.forEach(element => {
-                sendResp(element, playListId, currentPlayList)
-            })
-            logger.info(`[media] ${client.id} seek ${playListId}`)
-        })
-
-        room.onMessage("volume", (client, msg) => {
-            const userId = client.userData.userId
-            if (!userId) {
-                return
-            }
-            const playListId = msg.playListId
-            logger.info(`[media] ${client.id} requested to volume ${playListId} by user: ${userId}`)
-            if (!Object.hasOwnProperty.call(playLists, playListId)) {
-                return
-            }
-            const currentPlayList = playLists[playListId]
-            if (!Object.hasOwnProperty.call(playListSubscribers, playListId)) {
-                playListSubscribers[playListId] = []
-            }
-            const currentPlayListSubscribers = playListSubscribers[playListId]
-            currentPlayList.volume = msg.volume
-            playLists[playListId] = currentPlayList
-            currentPlayListSubscribers.forEach(element => {
-                sendResp(element, playListId, currentPlayList)
-            })
-            logger.info(`[media] ${client.id} volume ${playListId}`)
-        })
-
-        room.onMessage("switch", async (client, msg) => {
-            const userId = client.userData.userId
-            if (!userId) {
-                return
-            }
-            const playListId = msg.playListId
-            logger.info(`[media] ${client.id} requested to switch ${playListId} by user: ${userId}`)
-            if (!Object.hasOwnProperty.call(playLists, playListId)) {
-                return
-            }
-            const currentPlayList = playLists[playListId]
-            if (!Object.hasOwnProperty.call(playListSubscribers, playListId)) {
-                playListSubscribers[playListId] = []
-            }
-            const mediaId = msg.mediaId
-            const media = await prisma.videos.findFirst({
-                where: {
-                    id: mediaId,
-                    playListId: playListId,
-                },
-            })
-            // Can't find the media
-            if (!media) {
-                return
-            }
-            // Switch media
-            currentPlayList.mediaId = mediaId
-            currentPlayList.isPlaying = true
-            currentPlayList.filePath = media.filePath
-            currentPlayList.time = 0
-            currentPlayList.duration = media.duration
-            const currentPlayListSubscribers = playListSubscribers[playListId]
-            playLists[playListId] = currentPlayList
-            currentPlayListSubscribers.forEach(element => {
-                sendResp(element, playListId, currentPlayList)
-            })
-            logger.info(`[media] ${client.id} switch ${playListId}`)
-        })
-
-        const update = this.update;
-        room.setSimulationInterval((deltaTime: number) => update(deltaTime, prisma, playLists, playListSubscribers, deletingMediaIds), 1000);
+        // Can't find the media
+        if (!media) {
+            return
+        }
+        // Switch media
+        currentPlayList.mediaId = mediaId
+        currentPlayList.isPlaying = true
+        currentPlayList.filePath = media.filePath
+        currentPlayList.time = 0
+        currentPlayList.duration = media.duration
+        const currentPlayListSubscribers = this.playListSubscribers[playListId]
+        this.playLists[playListId] = currentPlayList
+        for (let i = 0; i < currentPlayListSubscribers.length; ++i) {
+            this.sendResp(currentPlayListSubscribers[i], playListId, currentPlayList)
+        }
+        this.logger.info(`[media] ${client.id} switch ${playListId}`)
     }
 
     async update(
@@ -433,8 +427,7 @@ export class MediaService {
         prisma: PrismaClient,
         playLists: { [id: string]: IMediaData },
         playListSubscribers: { [id: string]: Client[] },
-        deletingMediaIds: string[])
-    {
+        deletingMediaIds: string[]) {
         const deletingPlayLists: string[] = []
         for (const playListId in playLists) {
             if (!Object.hasOwnProperty.call(playLists, playListId)) {
@@ -527,15 +520,11 @@ export class MediaService {
     }
 
     public async onAuth(client: Client, options: any) {
-        const logger = this.logger;
-        const connectingUsers = this.connectingUsers;
-        const connections = this.connections;
-
         const token = options.token
         if (!token) {
             return
         }
-        
+
         const splitingData = token.split("|")
         if (splitingData.length < 2) {
             return
@@ -546,36 +535,35 @@ export class MediaService {
         if (!userId) {
             return
         }
-        
-        if (!Object.prototype.hasOwnProperty.call(connectingUsers, userId)) {
+
+        if (!Object.prototype.hasOwnProperty.call(this.connectingUsers, userId)) {
             return
         }
 
-        const connectingUser = connectingUsers[userId]
+        const connectingUser = this.connectingUsers[userId]
         if (connectionKey != connectingUser.connectionKey) {
             return
         }
 
         // Disconnect older socket
-        if (Object.prototype.hasOwnProperty.call(connections, userId)) {
-            connections[userId].leave()
-            logger.info(`[media] Disconnect [${connections[userId].id}] because it is going to connect by newer client with the same user ID`)
+        if (Object.prototype.hasOwnProperty.call(this.connections, userId)) {
+            this.connections[userId].leave()
+            this.logger.info(`[media] Disconnect [${this.connections[userId].id}] because it is going to connect by newer client with the same user ID`)
         }
 
         // Set user data after connected
         client.userData = connectingUser
 
         // Set socket client to the collections
-        connections[userId] = client
+        this.connections[userId] = client
     }
 
     public onDisconnect(client: Client) {
-        const playListSubscribers = this.playListSubscribers;
-        for (const key in playListSubscribers) {
-            if (!Object.hasOwnProperty.call(playListSubscribers, key)) {
+        for (const key in this.playListSubscribers) {
+            if (!Object.hasOwnProperty.call(this.playListSubscribers, key)) {
                 continue;
             }
-            const currentPlayListSubscribers = playListSubscribers[key]
+            const currentPlayListSubscribers = this.playListSubscribers[key]
             const index = currentPlayListSubscribers.indexOf(client);
             if (index >= 0) {
                 currentPlayListSubscribers.splice(index, 1);
