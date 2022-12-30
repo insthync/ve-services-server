@@ -618,30 +618,22 @@ export class ChatService {
         const token = options.token
         const splitingData = token.split("|")
         if (splitingData.length < 2) {
-            client.leave()
-            logger.info(`[chat] Not allow [${client.id}] to connect because the token is invalid`)
-            return false
+            return
         }
 
         const userId = splitingData[0]
         const connectionKey = splitingData[1]
         if (!userId) {
-            client.leave()
-            logger.info(`[chat] Not allow [${client.id}] to connect because it has invalid user ID`)
-            return false
+            return
         }
         
         if (!Object.prototype.hasOwnProperty.call(connectingUsers, userId)) {
-            client.leave()
-            logger.info(`[chat] Not allow [${client.id}] to connect because it has invalid user ID`)
-            return false
+            return
         }
 
         const connectingUser = connectingUsers[userId]
         if (connectionKey != connectingUser.connectionKey) {
-            client.leave()
-            logger.info(`[chat] Not allow [${client.id}] to connect because it has invalid connection key`)
-            return false
+            return
         }
 
         // Disconnect older socket
@@ -669,9 +661,8 @@ export class ChatService {
             }
             connectionsByGroupId[userGroup.groupId][userId] = client
         })
+        
         await NotifyGroup(userId)
-
-        return true
     }
 }
 
