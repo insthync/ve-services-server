@@ -15,11 +15,11 @@ export class ListingService {
     }
 
     setupRoutes() {
-        this.app.get('/listing', this.onListing);
-        this.app.get('/listing/total-player', this.onTotalPlayer);
+        this.app.get('/listing', this.onGetList);
+        this.app.get('/listing/total-player', this.onGetTotalPlayer);
     }
 
-    onListing(req: express.Request, res: express.Response) {
+    onGetList(req: express.Request, res: express.Response) {
         const result = [];
         for (const key in this.gameServers) {
             if (Object.hasOwnProperty.call(this.gameServers, key)) {
@@ -32,7 +32,7 @@ export class ListingService {
         });
     }
 
-    onTotalPlayer(req: express.Request, res: express.Response) {
+    onGetTotalPlayer(req: express.Request, res: express.Response) {
         let totalPlayer = 0;
         for (const key in this.gameServers) {
             if (Object.hasOwnProperty.call(this.gameServers, key)) {
