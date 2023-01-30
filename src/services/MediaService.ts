@@ -50,7 +50,7 @@ export class MediaService {
 
     setupRoutes() {
         this.app.use(fileupload());
-        this.app.use('/media/uploads', express.static('uploads'));
+        this.app.use('/media/uploads', express.static('media/uploads'));
         this.app.post('/media/add-user', this.validateSystem.bind(this), this.onAddUser.bind(this))
         this.app.post('/media/remove-user', this.validateSystem.bind(this), this.onRemoveUser.bind(this))
         this.app.post('/media/upload', this.validateUser.bind(this), this.onUploadMedia.bind(this))
@@ -86,7 +86,7 @@ export class MediaService {
                 const playListId: string = req.body.playListId
                 const file: fileupload.UploadedFile = req.files.file as fileupload.UploadedFile
                 const fileName = file.name
-                const savePath = '.media/uploads/' + id + '_' + fileName
+                const savePath = id + '_' + fileName
                 const fullSavePath = process.cwd() + '/media/uploads/' + id + '_' + fileName
                 await file.mv(fullSavePath)
 
@@ -138,6 +138,7 @@ export class MediaService {
                             isPlaying: true,
                             filePath: savePath,
                             time: 0,
+                            volume: 1,
                             duration: duration,
                         } as IMediaResp)
                     }

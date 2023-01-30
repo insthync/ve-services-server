@@ -1,4 +1,4 @@
-import { Room, Client, ServerError } from "colyseus";
+import { Room, Client } from "colyseus";
 import http from "http";
 import winston from "winston";
 import { getLogger, getMediaService } from "..";
