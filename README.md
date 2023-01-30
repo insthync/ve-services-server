@@ -27,10 +27,7 @@ npm start
 ## Schema Gen
 
 ```
-npx schema-codegen src/rooms/schema/BroadcastState.ts --csharp --output ./codegen_cs/schema
-npx schema-codegen src/rooms/schema/ChatRoomState.ts --csharp --output ./codegen_cs/schema
-npx schema-codegen src/rooms/schema/ListingRoomState.ts --csharp --output ./codegen_cs/schema
-npx schema-codegen src/rooms/schema/MediaRoomState.ts --csharp --output ./codegen_cs/schema
+npx schema-codegen src/rooms/schema/WebRTCSignalingRoomState.ts --csharp --output ./codegen_cs/schema
 ```
 
 ## License

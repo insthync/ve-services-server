@@ -7,7 +7,8 @@
 
 using Colyseus.Schema;
 
-public partial class BroadcastRoomState : Schema {
-
+public partial class WebRTCSignalingRoomState : Schema {
+	[Type(0, "map", typeof(MapSchema<WebRTCPeer>))]
+	public MapSchema<WebRTCPeer> players = new MapSchema<WebRTCPeer>();
 }
 

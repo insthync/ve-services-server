@@ -7,7 +7,11 @@
 
 using Colyseus.Schema;
 
-public partial class MediaRoomState : Schema {
+public partial class WebRTCPeer : Schema {
+	[Type(0, "string")]
+	public string sessionId = default(string);
 
+	[Type(1, "string")]
+	public string id = default(string);
 }
 
