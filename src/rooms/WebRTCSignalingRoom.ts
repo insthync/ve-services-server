@@ -39,19 +39,19 @@ export class WebRTCSignalingRoom extends Room<WebRTCSignalingRoomState> {
     }
   
     onJoin(client: Client, options: any) {
-      console.log(client.sessionId, "joined!");
+      this.logger.info(`${client.sessionId} joined!`);
       this.state.players.set(client.sessionId, new WebRTCPeer().assign({
         sessionId: client.sessionId,
       }));
     }
   
     onLeave(client: Client, consented: boolean) {
-      console.log(client.sessionId, "left!");
+      this.logger.info(`${client.sessionId} left!`);
       this.state.players.delete(client.sessionId);
     }
   
     onDispose() {
-      console.log("room", this.roomId, "disposing...");
+      this.logger.info(`room ${this.roomId} disposing...`);
     }
   
 }
