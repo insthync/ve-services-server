@@ -20,6 +20,7 @@ import { BroadcastRoom } from "./rooms/BroadcastRoom";
 import { ChatRoom } from "./rooms/ChatRoom";
 import { ListingRoom } from "./rooms/ListingRoom";
 import { MediaRoom } from "./rooms/MediaRoom";
+import { WebRTCSignalingRoom } from "./rooms/WebRTCSignalingRoom";
 
 const logger: winston.Logger = winston.createLogger({
     level: 'info',
@@ -153,6 +154,7 @@ function setup(app: express.Express, server: http.Server): Server {
     gameServer.define("chatRoom", ChatRoom);
     gameServer.define("listingRoom", ListingRoom);
     gameServer.define("mediaRoom", MediaRoom);
+    gameServer.define("webrtcSignalingRoom", WebRTCSignalingRoom);
 
     return gameServer;
 }
