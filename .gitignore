@@ -5,3 +5,4 @@ greenlock.d/
 *.log
 *.log.bkp
 lib/
+uploads/
