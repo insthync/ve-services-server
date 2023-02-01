@@ -1,17 +1,14 @@
-import { Room, Client, ServerError } from "colyseus";
-import http from "http";
+import { Room, Client } from "colyseus";
 import winston from "winston";
-import { getLogger, getChatService } from "..";
-import { WebRTCPeer } from "./schema/WebRTCPeer";
-import { WebRTCSignalingRoomState } from "./schema/WebRTCSignalingRoomState";
+import { getLogger } from "..";
 
-export class WebRTCSignalingRoom extends Room<WebRTCSignalingRoomState> {
+export class WebRTCSignalingRoom extends Room {
     private logger: winston.Logger;
 
     onCreate(options: any) {
       this.logger = getLogger();
-      this.setState(new WebRTCSignalingRoomState());
       this.autoDispose = false;
+      this.maxClients = Number(process.env.MAX_CLIENTS || 500);
       this.onMessage("candidate", this.onCandidate.bind(this));
       this.onMessage("desc", this.onDesc.bind(this));
     }
@@ -39,19 +36,15 @@ export class WebRTCSignalingRoom extends Room<WebRTCSignalingRoomState> {
     }
   
     onJoin(client: Client, options: any) {
-      this.logger.info(`${client.sessionId} joined!`);
-      this.state.players.set(client.sessionId, new WebRTCPeer().assign({
-        sessionId: client.sessionId,
-      }));
+      this.logger.info(`[signaling] ${client.sessionId} joined!`);
     }
   
     onLeave(client: Client, consented: boolean) {
-      this.logger.info(`${client.sessionId} left!`);
-      this.state.players.delete(client.sessionId);
+      this.logger.info(`[signaling] ${client.sessionId} left!`);
     }
   
     onDispose() {
-      this.logger.info(`room ${this.roomId} disposing...`);
+      this.logger.info(`[signaling] room ${this.roomId} disposing...`);
     }
   
 }
