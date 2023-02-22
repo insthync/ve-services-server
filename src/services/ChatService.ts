@@ -121,6 +121,7 @@ export class ChatService {
             const targetClient = targetClients[targetUserId]
             targetClient.send("group-leave", {
                 groupId: groupId,
+                userId: userId,
             } as IGroupLeaveResp)
         }
     }
@@ -229,8 +230,7 @@ export class ChatService {
             const targetClient = targetClients[targetUserId]
             targetClient.send("group-join", {
                 groupId: groupId,
-                userId: targetClient.userData.userId,
-                name: targetClient.userData.name,
+                userId: userId,
             } as IGroupJoinResp)
         }
         await this.NotifyGroupInvitation(userId)
@@ -655,6 +655,7 @@ interface IClientData {
 
 interface IGroupLeaveResp {
     groupId: string;
+    userId: string;
 }
 
 interface IGroupInvitationListResp {
@@ -673,7 +674,6 @@ interface IGroupListResp {
 interface IGroupJoinResp {
     groupId: string;
     userId: string;
-    name: string;
 }
 
 interface IChatResp {
