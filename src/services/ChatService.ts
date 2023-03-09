@@ -376,7 +376,7 @@ export class ChatService {
             return
         }
         const groupId = nanoid(8)
-        const title = data.title
+        const title = this.profanity.censor(data.title)
         const iconUrl = data.iconUrl
         // Insert group data to database
         await this.prisma.group.create({

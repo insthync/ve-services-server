@@ -73,10 +73,13 @@ profanityoptions.grawlixChar = '$';
 
 export function getProfanity(): Profanity {
     const profanity = new Profanity(profanityoptions);
-    const badWords: Array<string> = JSON.parse(process.env.BAD_WORDS || '[]');
-    profanity.addWords(badWords);
-    const whitelistWords: Array<string> = JSON.parse(process.env.WHITELIST_WORDS || '[]');
-    profanity.whitelist.addWords(whitelistWords);
+    try {
+        const settings = JSON.parse(fs.readFileSync(String('./configs/profanity.json'), 'utf8'));
+        profanity.addWords(settings.bad_words);
+        profanity.whitelist.addWords(settings.whitelist_words);
+    } catch (ex) {
+        console.error(`Cannot read profanity config file, ${ex}`);
+    }
     return profanity;
 }
 
